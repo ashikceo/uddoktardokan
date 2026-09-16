@@ -10,6 +10,7 @@
           <a href="{% url 'medicine_pos_company_order' %}" class="btn btn-warning"><i class="fa fa-truck"></i> Medicine Order</a>
           <a href="{% url 'medicine_inventory_log_export' %}?type={{ type_filter }}" class="btn btn-success"><i class="fa fa-file-excel-o"></i> Export Excel</a>
           <a href="{% url 'medicine_inventory_list' %}" class="btn btn-primary"><i class="fa fa-arrow-left"></i> Back to Inventory</a>
+          {% include 'store/_print_button.html' %}
         </div>
       </div>
 

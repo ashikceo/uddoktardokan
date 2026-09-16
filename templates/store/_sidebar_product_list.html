@@ -1,0 +1,63 @@
+{% if page_settings.show_used_products_sidebar and used_products %}
+<div class="sidebar-random-box">
+  <div class="block-title"><i class="fa fa-tags"></i> {{ page_settings.used_products_heading }}</div>
+  <div class="sidebar-product-list">
+    <div class="sidebar-product-scroll">
+      {% for product in used_products %}
+      <div class="sidebar-product-item">
+        <a href="{% url 'product_detail' product.slug %}">
+          {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
+          <span class="sp-badge-used">Used</span>
+        </a>
+        <div class="sp-info">
+          <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
+          <span class="sp-price">&#x09F3; {{ product.price }}</span>
+        </div>
+      </div>
+      {% endfor %}
+      {% for product in used_products %}
+      <div class="sidebar-product-item">
+        <a href="{% url 'product_detail' product.slug %}">
+          {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
+          <span class="sp-badge-used">Used</span>
+        </a>
+        <div class="sp-info">
+          <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
+          <span class="sp-price">&#x09F3; {{ product.price }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% elif page_settings.show_random_product %}
+<div class="sidebar-random-box">
+  <div class="block-title"><i class="fa fa-list"></i> {{ page_settings.random_list_heading }}</div>
+  <div class="sidebar-product-list">
+    <div class="sidebar-product-scroll">
+      {% for product in latest_products %}
+      <div class="sidebar-product-item">
+        <a href="{% url 'product_detail' product.slug %}">
+          {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
+        </a>
+        <div class="sp-info">
+          <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
+          <span class="sp-price">&#x09F3; {{ product.price }}</span>
+        </div>
+      </div>
+      {% endfor %}
+      {% for product in latest_products %}
+      <div class="sidebar-product-item">
+        <a href="{% url 'product_detail' product.slug %}">
+          {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
+        </a>
+        <div class="sp-info">
+          <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
+          <span class="sp-price">&#x09F3; {{ product.price }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}

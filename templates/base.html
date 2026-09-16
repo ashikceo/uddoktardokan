@@ -65,6 +65,21 @@
 <link rel="stylesheet" href="{% static 'fonten_app/css/style.css' %}">
 <link rel="stylesheet" href="{% static 'fonten_app/css/responsive.css' %}">
 <link rel="stylesheet" href="{% static 'fonten_app/css/mobile.css' %}">
+<style>
+@media print {
+  header, .mobile-header, nav, .mobile-bottom-nav,
+  .footer-newsletter, .footer-logo, .footer-links, .footer-coppyright,
+  .no-print, .breadcrumb, .page-header .btn, .print-hide { display: none !important; }
+  body { background: #fff !important; }
+  #page { margin: 0 !important; }
+  .container { margin-top: 0 !important; }
+  a[href]:after { content: "" !important; }
+  .company-card, .table-responsive, table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+  body.print-selected .order-table tbody tr:not(.print-sel) { display: none !important; }
+  body.print-selected .company-card:not(:has(tr.print-sel)) { display: none !important; }
+}
+</style>
 {% block extra_css %}{% endblock %}
 </head>
 

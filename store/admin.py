@@ -567,7 +567,7 @@ class PartnerAdmin(ExcelExportMixin, admin.ModelAdmin):
 class ProductAdmin(ExcelExportMixin, admin.ModelAdmin):
     list_display = ['name', 'sku', 'barcode', 'price_display', 'cost_price_display', 'profit_display', 'stock_badge', 'is_published_badge', 'category', 'partner', 'available', 'label_badge', 'image_preview']
     list_per_page = 50
-    list_filter = ['is_published', 'available', 'label', 'category', 'partner', 'created']
+    list_filter = ['is_published', 'available', 'label', 'condition', 'category', 'partner', 'created']
     list_editable = ['available']
     search_fields = ['name', 'sku', 'barcode', 'description', 'category__name', 'partner__name']
     prepopulated_fields = {'slug': ('name',)}
@@ -1285,6 +1285,9 @@ class HomepageSettingsAdmin(admin.ModelAdmin):
         }),
         ('Random Product List (sidebars)', {
             'fields': ['show_random_product', 'random_list_heading'],
+        }),
+        ('Hot Selling Used Product', {
+            'fields': ['show_used_products', 'used_products_heading', 'show_used_products_sidebar'],
         }),
         ('Partner Product Sections', {
             'fields': ['show_partner_products', 'partner_products_heading', 'show_partner_hot_products', 'partner_hot_products_heading'],

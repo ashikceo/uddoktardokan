@@ -3,6 +3,14 @@
 
 {% block title %}My Products - Uddoktar Dokan{% endblock %}
 
+{% block extra_css %}
+<style>
+.pub-badge { display:inline-block; font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
+.pub-badge-live { background:#e6f7ee; color:#1a8a4a; }
+.pub-badge-draft { background:#fdf1dd; color:#b5730a; }
+</style>
+{% endblock %}
+
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -88,6 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <th>Profit</th>
                     <th>Stock</th>
                     <th>Available</th>
+                    <th>Status</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -117,7 +126,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>{{ product.stock }}</td>
                     <td>{{ product.available|yesno:"Yes,No" }}</td>
                     <td>
+                        {% if product.is_published %}
+                        <span class="pub-badge pub-badge-live">Published</span>
+                        {% else %}
+                        <span class="pub-badge pub-badge-draft">Draft</span>
+                        {% endif %}
+                    </td>
+                    <td>
                         <a href="{% url 'dashboard_product_edit' product.id %}" class="btn btn-outline" style="padding:4px 12px; font-size:11px;">Edit</a>
+                        <button type="submit" formmethod="post" formaction="{% url 'dashboard_product_toggle_publish' product.id %}" class="btn btn-outline" style="padding:4px 12px; font-size:11px; color:{% if product.is_published %}#b5730a{% else %}#1a8a4a{% endif %}; border-color:currentColor;" onclick="return confirm('{% if product.is_published %}Unpublish this product and save as draft?{% else %}Publish this product now?{% endif %}');">{% if product.is_published %}Unpublish{% else %}Publish{% endif %}</button>
                         <a href="{% url 'dashboard_product_duplicate' product.id %}" class="btn btn-outline" style="padding:4px 12px; font-size:11px; color:#28a745; border-color:#28a745;">Duplicate</a>
                         <a href="{% url 'dashboard_product_delete' product.id %}" class="btn btn-primary" style="padding:4px 12px; font-size:11px; background:#999; border-color:#999;">Delete</a>
                     </td>

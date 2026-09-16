@@ -1,0 +1,1 @@
+<button type="button" class="btn btn-outline no-print{% if extra_class %} {{ extra_class }}{% endif %}" onclick="window.print()"{% if btn_id %} id="{{ btn_id }}"{% endif %} style="font-size:12px;padding:5px 14px;{% if btn_style %}{{ btn_style }}{% endif %}"><i class="fa fa-print"></i> {% if label %}{{ label }}{% else %}Print{% endif %}</button>

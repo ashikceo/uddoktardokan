@@ -12,6 +12,7 @@
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
         <h1>Withdrawal History</h1>
         <a href="{% url 'dashboard_withdraw' %}" class="btn btn-primary" style="font-size:12px;"><i class="fa fa-plus"></i> New Withdrawal</a>
+        {% include 'store/_print_button.html' %}
     </div>
 
     {% if withdrawals %}

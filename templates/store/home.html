@@ -19,6 +19,12 @@
 .sidebar-product-item .sp-name{display:block;font-size:13px;color:#333;text-decoration:none;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sidebar-product-item .sp-name:hover{color:#e74847}
 .sidebar-product-item .sp-price{display:block;color:#e74847;font-size:14px;font-weight:700;margin-top:2px}
+.sidebar-product-item a{position:relative;display:block;flex-shrink:0}
+.sp-badge-used{position:absolute;top:4px;left:4px;background:#e74847;color:#fff;font-size:9px;font-weight:700;line-height:1;padding:3px 5px;border-radius:3px;text-transform:uppercase;letter-spacing:.3px}
+.used-products-section{margin-top:30px}
+.used-products-section .used-heading{font-size:22px;font-weight:800;color:#333;margin:0 0 18px;padding-left:12px;border-left:4px solid #e74847;display:flex;align-items:center;gap:10px}
+.used-products-section .used-heading .used-pill{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;background:#ffecec;color:#e74847;padding:4px 10px;border-radius:20px}
+.used-products-section .products-grid .item{margin-bottom:24px}
 .home-tab .products-grid .item{width:26.5%;margin-left:-1%;margin-right:-1%}
 @media(max-width:991px){.home-tab .products-grid .item{width:31.33%}}
 @media(max-width:767px){.home-tab .products-grid .item{width:48%}}
@@ -194,37 +200,7 @@
         </div>
       </div>
       <div class="col-md-3 col-sm-4 col-xs-12 sidebar hidden-sm hidden-xs" id="homeSidebar1">
-        {% if page_settings.show_random_product %}
-        <div class="sidebar-random-box">
-          <div class="block-title"><i class="fa fa-list"></i> {{ page_settings.random_list_heading }}</div>
-          <div class="sidebar-product-list">
-            <div class="sidebar-product-scroll">
-              {% for product in latest_products %}
-              <div class="sidebar-product-item">
-                <a href="{% url 'product_detail' product.slug %}">
-                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
-                </a>
-                <div class="sp-info">
-                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
-                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
-                </div>
-              </div>
-              {% endfor %}
-              {% for product in latest_products %}
-              <div class="sidebar-product-item">
-                <a href="{% url 'product_detail' product.slug %}">
-                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
-                </a>
-                <div class="sp-info">
-                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
-                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
-                </div>
-              </div>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-        {% endif %}
+        {% include 'store/_sidebar_product_list.html' %}
         {% if sidebar_sliders_1 %}
         <div class="sidebar-random-box home-sidebar-slider-box" style="margin-top:15px;">
           <div class="block-title offers-title">Offers</div>
@@ -257,6 +233,24 @@
 </div>
 {% endif %}
 
+<!-- Hot Selling Used Product -->
+{% if page_settings.show_used_products and used_products %}
+<div class="main-container home-order-4b used-products-section">
+  <div class="container">
+    <h3 class="used-heading">{{ page_settings.used_products_heading }} <span class="used-pill">Used</span></h3>
+    <div class="product-grid-area">
+      <ul class="products-grid row">
+        {% for product in used_products %}
+        <li class="item col-lg-3 col-md-4 col-sm-6 col-6 mb-4">
+          {% include 'store/product_card.html' with no_actions=True %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- All Partner Product -->
 {% if page_settings.show_partner_products %}
 <div class="main-container col2-left-layout home-order-5">
@@ -282,37 +276,7 @@
         </div>
       </div>
       <div class="col-md-3 col-sm-4 col-xs-12 sidebar hidden-sm hidden-xs" id="homeSidebar2">
-        {% if page_settings.show_random_product %}
-        <div class="sidebar-random-box">
-          <div class="block-title"><i class="fa fa-list"></i> {{ page_settings.random_list_heading }}</div>
-          <div class="sidebar-product-list">
-            <div class="sidebar-product-scroll">
-              {% for product in latest_products %}
-              <div class="sidebar-product-item">
-                <a href="{% url 'product_detail' product.slug %}">
-                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
-                </a>
-                <div class="sp-info">
-                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
-                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
-                </div>
-              </div>
-              {% endfor %}
-              {% for product in latest_products %}
-              <div class="sidebar-product-item">
-                <a href="{% url 'product_detail' product.slug %}">
-                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
-                </a>
-                <div class="sp-info">
-                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
-                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
-                </div>
-              </div>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-        {% endif %}
+        {% include 'store/_sidebar_product_list.html' %}
         {% if sidebar_sliders_2 %}
         <div class="sidebar-random-box" style="margin-top:15px;">
           <div class="block-title offers-title">Offers</div>
@@ -439,37 +403,7 @@
         </div>
       </div>
       <div class="col-md-3 col-sm-4 col-xs-12 sidebar hidden-sm hidden-xs" id="homeSidebar3">
-        {% if page_settings.show_random_product %}
-        <div class="sidebar-random-box">
-          <div class="block-title"><i class="fa fa-list"></i> {{ page_settings.random_list_heading }}</div>
-          <div class="sidebar-product-list">
-            <div class="sidebar-product-scroll">
-              {% for product in latest_products %}
-              <div class="sidebar-product-item">
-                <a href="{% url 'product_detail' product.slug %}">
-                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
-                </a>
-                <div class="sp-info">
-                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
-                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
-                </div>
-              </div>
-              {% endfor %}
-              {% for product in latest_products %}
-              <div class="sidebar-product-item">
-                <a href="{% url 'product_detail' product.slug %}">
-                  {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}
-                </a>
-                <div class="sp-info">
-                  <a href="{% url 'product_detail' product.slug %}" class="sp-name">{{ product.name|truncatechars:30 }}</a>
-                  <span class="sp-price">&#x09F3; {{ product.price }}</span>
-                </div>
-              </div>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-        {% endif %}
+        {% include 'store/_sidebar_product_list.html' %}
         {% if sidebar_sliders_3 %}
         <div class="sidebar-random-box" style="margin-top:15px;">
           <div class="block-title offers-title">Offers</div>

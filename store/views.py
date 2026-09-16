@@ -23,6 +23,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.text import slugify
 from django_ratelimit.decorators import ratelimit
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,7 @@ def home(request):
     new_products = base_qs.filter(label='new')[:12]
     hot_products = base_qs.filter(label='hot')[:12]
     discounted_products = base_qs.filter(label='discounted')[:12]
+    used_products = base_qs.filter(condition='used')[:12]
     partner_products = base_qs.filter(partner__isnull=False)[:12]
     best_selling_products = base_qs.order_by('?')[:12]
     categories = Category.objects.filter(parent=None).prefetch_related('children').annotate(product_count=Count('products')).order_by('name')
@@ -95,6 +97,7 @@ def home(request):
         'new_products': new_products,
         'hot_products': hot_products,
         'discounted_products': discounted_products,
+        'used_products': used_products,
         'partner_products': partner_products,
         'best_selling_products': best_selling_products,
         'categories': categories,
@@ -276,12 +279,31 @@ def category_page(request, slug_path):
 
 def quick_view(request, product_id):
     product = get_object_or_404(Product.objects.filter(trashed=False).annotate(review_count=Count('reviews'), review_avg=Avg('reviews__rating')), id=product_id)
+    if not _can_view_unpublished(request, product):
+        return HttpResponseNotFound()
     html = render_to_string('store/quick_view_partial.html', {'product': product}, request)
     return JsonResponse({'html': html})
 
 
+def _can_view_unpublished(request, product):
+    """Owner partners (and staff) may preview drafts; everyone else gets a 404."""
+    if not product.is_published:
+        if request.user.is_authenticated:
+            if request.user.is_staff:
+                return True
+            try:
+                if request.user.partner == product.partner:
+                    return True
+            except Partner.DoesNotExist:
+                return False
+        return False
+    return True
+
+
 def product_detail(request, slug):
     product = get_object_or_404(Product.objects.filter(trashed=False), slug=slug)
+    if not _can_view_unpublished(request, product):
+        return HttpResponseNotFound()
     if getattr(request, 'is_custom_domain', False):
         custom_store = getattr(request, 'custom_store', None)
         if not custom_store or custom_store.pk != product.partner_id:
@@ -1761,8 +1783,20 @@ def dashboard_product_create(request):
         old_price = request.POST.get('old_price', '').strip()
         label = request.POST.get('label', '').strip()
         custom_label = request.POST.get('custom_label', '').strip()
+        slug_input = request.POST.get('slug', '').strip()
+        meta_title = request.POST.get('meta_title', '').strip()
+        meta_description = request.POST.get('meta_description', '').strip()
+        condition = request.POST.get('condition', 'new').strip()
         video_url = request.POST.get('video_url', '').strip()
         available = request.POST.get('available') == 'on'
+        publish_action = request.POST.get('publish_action', 'publish').strip()
+        is_draft = publish_action == 'draft'
+
+        # Product Condition → Used label route
+        if condition not in ('new', 'used'):
+            condition = 'new'
+        if condition == 'used':
+            label = 'used'
 
         cost_price = request.POST.get('cost_price', '').strip()
         weight = request.POST.get('weight', '').strip()
@@ -1775,29 +1809,64 @@ def dashboard_product_create(request):
         custom_unit_label = request.POST.get('custom_unit_label', '').strip()
         price_on_request = request.POST.get('price_on_request') == 'on'
 
-        if not name or not price:
+        errors = []
+        if not name:
+            errors.append('Product name is required.')
+        if is_draft:
+            # Drafts may be saved with just a title; price is optional but must be valid if given.
+            if price and (not _is_valid_decimal(price) or Decimal(price) < 0):
+                errors.append('Price must be a valid number.')
+        elif not price:
+            errors.append('Price is required.')
+        elif not _is_valid_decimal(price) or Decimal(price) <= 0:
+            errors.append('Price must be a positive number.')
+        if old_price and (not _is_valid_decimal(old_price) or Decimal(old_price) < 0):
+            errors.append('Old price must be a valid number.')
+        if cost_price and (not _is_valid_decimal(cost_price) or Decimal(cost_price) < 0):
+            errors.append('Cost price must be a valid number.')
+        if category_id:
+            if not Category.objects.filter(id=category_id).exists():
+                errors.append('The selected category is invalid.')
+            category_id = category_id if Category.objects.filter(id=category_id).exists() else ''
+        if slug_input:
+            slug_slug = slugify(slug_input)[:50]
+            if not slug_slug:
+                errors.append('The URL slug is invalid.')
+            elif Product.objects.filter(slug=slug_slug).exists():
+                errors.append(f'The URL slug "{slug_slug}" is already in use by another product.')
+
+        if errors:
             return render(request, 'store/dashboard_product_form.html', {
-                'error': 'Name and price are required.',
+                'error': ' '.join(errors),
+                'product': Product(),
                 'categories': Category.objects.all(),
+                'categories_json': _category_tree_json(Category.objects.all()),
+                'category_chain': _category_chain(category_id),
                 'partner': partner,
                 'is_edit': False,
                 'preset_colors': PRESET_COLORS,
+                'preset_sizes': PRESET_SIZES,
+                'form_data': _product_form_data(request),
             })
         product = Product.objects.create(
             name=name,
             sku=sku,
             barcode=barcode,
+            slug=slugify(slug_input)[:50] if slug_input else '',
             partner=partner,
             category_id=int(category_id) if category_id.isdigit() else None,
-            price=price,
+            price=Decimal(price) if (price and _is_valid_decimal(price)) else Decimal('0'),
             cost_price=float(cost_price) if cost_price else None,
             old_price=old_price if old_price else None,
             label=label if label else None,
+            condition=condition,
             custom_label=custom_label or None,
             stock=int(stock) if stock.isdigit() else 0,
             low_stock_threshold=int(low_stock_threshold) if low_stock_threshold.isdigit() else 5,
             short_description=short_description,
             description=description,
+            meta_title=meta_title,
+            meta_description=meta_description,
             video_url=video_url or None,
             available=available,
             weight=float(weight) if weight else None,
@@ -1809,7 +1878,7 @@ def dashboard_product_create(request):
             sale_unit=sale_unit,
             custom_unit_label=custom_unit_label if sale_unit == 'custom' else '',
             price_on_request=price_on_request,
-            is_published=True,
+            is_published=not is_draft,
         )
         if 'image' in request.FILES:
             try:
@@ -1817,14 +1886,14 @@ def dashboard_product_create(request):
                 product.image = request.FILES['image']
             except ValueError as e:
                 product.delete()
-                return render(request, 'store/dashboard_product_form.html', {'error': str(e), 'partner': partner, 'categories': Category.objects.all()})
+                return render(request, 'store/dashboard_product_form.html', {'error': str(e), 'partner': partner, 'product': Product(), 'categories': Category.objects.all(), 'categories_json': _category_tree_json(Category.objects.all()), 'category_chain': _category_chain(request.POST.get('category', '')), 'form_data': _product_form_data(request), 'is_edit': False})
         if 'hover_image' in request.FILES:
             try:
                 validate_upload(request.FILES['hover_image'])
                 product.hover_image = request.FILES['hover_image']
             except ValueError as e:
                 product.delete()
-                return render(request, 'store/dashboard_product_form.html', {'error': str(e), 'partner': partner, 'categories': Category.objects.all()})
+                return render(request, 'store/dashboard_product_form.html', {'error': str(e), 'partner': partner, 'product': Product(), 'categories': Category.objects.all(), 'categories_json': _category_tree_json(Category.objects.all()), 'category_chain': _category_chain(request.POST.get('category', '')), 'form_data': _product_form_data(request), 'is_edit': False})
         product.save()
         _save_color_variants(request, product)
         _save_size_variants(request, product)
@@ -1834,12 +1903,19 @@ def dashboard_product_create(request):
                 ProductImage.objects.create(product=product, image=f)
             except ValueError:
                 pass
+        if is_draft:
+            messages.success(request, f'"{product.name}" saved as a draft. You can publish it anytime from My Products.')
+        else:
+            messages.success(request, f'"{product.name}" has been published.')
         return redirect('dashboard_products')
     return render(request, 'store/dashboard_product_form.html', {
         'categories': Category.objects.all(),
+        'categories_json': _category_tree_json(Category.objects.all()),
+        'category_chain': [],
         'partner': partner,
-        'product': None,
+        'product': Product(),
         'is_edit': False,
+        'form_data': {},
         'preset_colors': PRESET_COLORS,
         'preset_sizes': PRESET_SIZES,
     })
@@ -1862,11 +1938,32 @@ def dashboard_product_edit(request, pk):
         category_id = request.POST.get('category', '').strip()
         old_price = request.POST.get('old_price', '').strip()
         label = request.POST.get('label', '').strip()
+        condition = request.POST.get('condition', product.condition or 'new').strip()
+        slug_input = request.POST.get('slug', '').strip()
+        product.meta_title = request.POST.get('meta_title', '').strip()
+        product.meta_description = request.POST.get('meta_description', '').strip()
         product.custom_label = request.POST.get('custom_label', '').strip() or None
         product.short_description = request.POST.get('short_description', '').strip()
         product.description = request.POST.get('description', product.description).strip()
         product.video_url = request.POST.get('video_url', '').strip() or None
         product.available = request.POST.get('available') == 'on'
+        publish_action = request.POST.get('publish_action', 'publish').strip()
+        is_draft = publish_action == 'draft'
+
+        # Product Condition → Used label route
+        if condition not in ('new', 'used'):
+            condition = product.condition or 'new'
+        if condition == 'used':
+            label = 'used'
+        product.condition = condition
+
+        # Slug: only update when the seller is not using the auto-generated one
+        if slug_input and slug_input != product.slug:
+            new_slug = slugify(slug_input)[:50]
+            if new_slug and not Product.objects.filter(slug=new_slug).exclude(pk=product.pk).exists():
+                product.slug = new_slug
+            elif new_slug:
+                messages.error(request, f'The URL slug "{new_slug}" is already in use by another product.')
 
         cost_price = request.POST.get('cost_price', '').strip()
         product.cost_price = float(cost_price) if cost_price else None
@@ -1887,11 +1984,17 @@ def dashboard_product_edit(request, pk):
 
         if price:
             product.price = price
+        if not is_draft:
+            effective_price = price if price else product.price
+            if not effective_price or not _is_valid_decimal(str(effective_price)) or Decimal(str(effective_price)) <= 0:
+                messages.error(request, 'A positive price is required to publish this product.')
+                return redirect('dashboard_product_edit', pk=product.pk)
         if stock:
             product.stock = int(stock) if stock.isdigit() else product.stock
         product.category_id = int(category_id) if category_id.isdigit() else product.category_id
         product.old_price = old_price if old_price else None
         product.label = label if label else None
+        product.is_published = not is_draft
         if 'image' in request.FILES:
             try:
                 validate_upload(request.FILES['image'])
@@ -1923,17 +2026,90 @@ def dashboard_product_edit(request, pk):
             except ValueError:
                 pass
 
+        if is_draft:
+            messages.success(request, f'"{product.name}" saved as a draft.')
+        elif product.is_published:
+            messages.success(request, f'"{product.name}" has been updated.')
         return redirect('dashboard_products')
     return render(request, 'store/dashboard_product_form.html', {
         'product': product,
         'categories': Category.objects.all(),
+        'categories_json': _category_tree_json(Category.objects.all()),
+        'category_chain': _category_chain(product.category_id),
         'partner': partner,
         'is_edit': True,
+        'form_data': {},
         'color_variants': product.color_variants.all(),
         'size_variants': product.size_variants.all(),
         'preset_colors': PRESET_COLORS,
         'preset_sizes': PRESET_SIZES,
     })
+
+
+def _category_tree_json(categories):
+    """Build a JSON map of parent_id (or 'root') -> list of child categories for cascading selects."""
+    tree = {}
+    for c in categories:
+        key = 'root' if c.parent_id is None else str(c.parent_id)
+        tree.setdefault(key, []).append({'id': c.id, 'name': c.name})
+    return json.dumps(tree)
+
+
+def _category_chain(category_id):
+    """Return the ancestor id chain [root, ..., child] for the given category id."""
+    chain = []
+    seen = set()
+    current = category_id
+    parents = {}
+    for c in Category.objects.all():
+        parents[c.id] = c.parent_id
+    while current and current not in seen:
+        seen.add(current)
+        chain.append(int(current))
+        current = parents.get(int(current))
+    return list(reversed(chain))
+
+
+def _product_form_data(request):
+    """Build a safe dict of posted form values so the form can re-fill after a validation error."""
+    data = {}
+    for key in ('name', 'sku', 'barcode', 'price', 'old_price', 'cost_price', 'stock',
+                'low_stock_threshold', 'short_description', 'description', 'category', 'label',
+                'custom_label', 'slug', 'meta_title', 'meta_description', 'condition', 'video_url',
+                'weight', 'length', 'width', 'height', 'weight_unit', 'dimension_unit', 'sale_unit',
+                'custom_unit_label'):
+        val = request.POST.get(key, '')
+        if val:
+            data[key] = val
+    data['available'] = 'on' if request.POST.get('available') == 'on' else ''
+    data['price_on_request'] = 'on' if request.POST.get('price_on_request') == 'on' else ''
+    data['publish_action'] = request.POST.get('publish_action', 'publish')
+    return data
+
+
+def _is_valid_decimal(value):
+    try:
+        Decimal(value)
+        return True
+    except Exception:
+        return False
+
+
+@login_required
+def dashboard_product_toggle_publish(request, pk):
+    try:
+        partner = request.user.partner
+    except Partner.DoesNotExist:
+        return redirect('dashboard')
+    product = get_object_or_404(Product, pk=pk, partner=partner)
+    if request.method == 'POST':
+        product.is_published = not product.is_published
+        product.save(update_fields=['is_published'])
+        if product.is_published:
+            messages.success(request, f'"{product.name}" is now published.')
+        else:
+            messages.success(request, f'"{product.name}" is now saved as a draft (unpublished).')
+    return redirect('dashboard_products')
 
 
 @login_required
@@ -3935,6 +4111,63 @@ def medicine_subscription_page(request):
 
 
 @login_required
+def medicine_pos_settings(request):
+    try:
+        partner = request.user.partner
+    except Partner.DoesNotExist:
+        messages.error(request, 'No seller account found.')
+        return redirect('dashboard')
+    allowed, msg, sub_url = _check_medicine_pos_access(partner)
+    if not allowed:
+        if sub_url:
+            return redirect(sub_url)
+        messages.error(request, msg)
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        partner.medicine_invoice_download_enabled = request.POST.get('medicine_invoice_download_enabled') == 'on'
+        partner.save(update_fields=['medicine_invoice_download_enabled'])
+        messages.success(request, 'Medicine POS settings saved.')
+        return redirect('medicine_pos_settings')
+
+    sub = MedicineSubscription.objects.filter(partner=partner).first()
+    trial_days_remaining = 0
+    if sub:
+        if sub.status == 'trial' and sub.trial_ends_at:
+            trial_days_remaining = max(0, (sub.trial_ends_at - timezone.now()).days)
+        elif sub.status == 'active' and sub.current_period_end:
+            trial_days_remaining = max(0, (sub.current_period_end - timezone.now()).days)
+
+    return render(request, 'store/medicine_pos_settings.html', {
+        'partner': partner,
+        'sub': sub,
+        'trial_days_remaining': trial_days_remaining,
+    })
+
+
+@login_required
+def medicine_pos_invoice_pdf(request, pk):
+    try:
+        partner = request.user.partner
+    except Partner.DoesNotExist:
+        messages.error(request, 'No seller account found.')
+        return redirect('dashboard')
+    order = get_object_or_404(MedicinePosOrder, id=pk, partner=partner)
+    if not partner.medicine_invoice_download_enabled:
+        messages.error(request, 'Invoice download is turned off. Enable it in Medicine POS Settings.')
+        return redirect('medicine_pos_order_detail', pk=order.pk)
+    from weasyprint import HTML
+    html = render_to_string('store/medicine_pos_invoice.html', {
+        'partner': partner,
+        'order': order,
+    }, request)
+    pdf = HTML(string=html).write_pdf()
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="medicine-invoice-{order.invoice_number}.pdf"'
+    return response
+
+
+@login_required
 def wallet_recharge(request):
     try:
         partner = request.user.partner
@@ -5151,6 +5384,7 @@ def medicine_pos_company_order_export(request):
         MedicineInventory.objects.filter(partner=partner).values_list('product_id', flat=True)
     )
     items = data.get('items', [])
+    mark = data.get('mark', True)
     selected = []
     for it in items:
         try:
@@ -5194,6 +5428,8 @@ def medicine_pos_company_order_export(request):
         return JsonResponse({'error': 'Select at least one valid medicine.'}, status=400)
 
     def _mark_exported(filename):
+        if not mark:
+            return
         for pid, qty in selected:
             if pid not in products:
                 continue

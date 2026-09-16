@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice - {{ order.invoice_number }}</title>
+    <style>
+        @page { size: A4; margin: 15mm; }
+        body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 12px; color: #333; line-height: 1.5; margin: 0; padding: 20px; }
+        .header { text-align: center; border-bottom: 3px solid #6f42c1; padding-bottom: 15px; margin-bottom: 20px; }
+        .header h1 { margin: 0; color: #6f42c1; font-size: 22px; }
+        .header p { margin: 3px 0; color: #666; font-size: 11px; }
+        .invoice-title { text-align: center; font-size: 18px; font-weight: 700; margin: 20px 0; color: #333; text-transform: uppercase; letter-spacing: 2px; }
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .info-table td { padding: 5px 8px; vertical-align: top; }
+        .info-table td:first-child { font-weight: 600; width: 140px; color: #555; }
+        .badge { display: inline-block; padding: 3px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .badge-completed { background: #28a745; color: #fff; }
+        .badge-refunded { background: #dc3545; color: #fff; }
+        .badge-cancelled { background: #6c757d; color: #fff; }
+        .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .items-table th { background: #6f42c1; color: #fff; padding: 10px 12px; text-align: left; font-size: 12px; }
+        .items-table td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+        .items-table tr:nth-child(even) { background: #f9f9f9; }
+        .items-table th.num, .items-table td.num { text-align: right; }
+        .items-table th.center, .items-table td.center { text-align: center; }
+        .total-section { text-align: right; margin-top: 20px; padding-top: 15px; border-top: 2px solid #333; }
+        .total-section p { margin: 3px 0; font-size: 13px; }
+        .total-section .grand-total { font-size: 18px; font-weight: 700; color: #6f42c1; }
+        .footer { text-align: center; margin-top: 40px; padding-top: 15px; border-top: 1px solid #ddd; font-size: 10px; color: #999; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ site_name|default:'Uddoktar Dokan' }}</h1>
+        <p>{{ site_tagline|default:'উদ্যোক্তার বাজার' }}</p>
+        <p>{{ site_phone|default:'' }} | {{ site_address_bd|default:'' }}</p>
+    </div>
+
+    <div class="invoice-title">Sales Invoice</div>
+
+    <table class="info-table">
+        <tr><td>Invoice #</td><td>{{ order.invoice_number }}</td></tr>
+        <tr><td>Date</td><td>{{ order.created|date:'d M Y, h:i A' }}</td></tr>
+        <tr><td>Sold by</td><td>{{ partner.name }}</td></tr>
+        <tr><td>Customer</td><td>{{ order.customer_name|default:'Walk-in' }}</td></tr>
+        {% if order.customer_phone %}<tr><td>Phone</td><td>{{ order.customer_phone }}</td></tr>{% endif %}
+        <tr><td>Payment</td><td>{{ order.get_payment_method_display }}</td></tr>
+        <tr><td>Status</td><td><span class="badge badge-{{ order.status }}">{{ order.get_status_display }}</span></td></tr>
+    </table>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th class="center">#</th>
+                <th>Medicine</th>
+                <th class="center">Qty</th>
+                <th class="num">Unit Price</th>
+                <th class="num">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order.items.all %}
+            <tr>
+                <td class="center">{{ forloop.counter }}</td>
+                <td>{{ item.product_name }}</td>
+                <td class="center">{{ item.quantity }}</td>
+                <td class="num">৳{{ item.price|floatformat:2 }}</td>
+                <td class="num">৳{{ item.total_price|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="total-section">
+        <p>Subtotal: ৳{{ order.subtotal|floatformat:2 }}</p>
+        {% if order.discount %}
+        <p>Discount: -৳{{ order.discount|floatformat:2 }}</p>
+        {% endif %}
+        <p class="grand-total">Total: ৳{{ order.total|floatformat:2 }}</p>
+    </div>
+
+    {% if order.notes %}
+    <p style="margin-top:20px;font-size:11px;color:#666;"><strong>Notes:</strong> {{ order.notes }}</p>
+    {% endif %}
+
+    <div class="footer">
+        <p>Thank you for your business!</p>
+        <p>{{ site_name|default:'Uddoktar Dokan' }} | {{ site_phone|default:'' }}</p>
+    </div>
+</body>
+</html>

@@ -128,6 +128,7 @@ body { min-height:100vh; display:flex; flex-direction:column; }
         <a href="{% url 'medicine_pos_daily_report' %}" class="btn btn-outline no-print" style="font-size:12px;"><i class="fa fa-bar-chart"></i> Report</a>
         <a href="{% url 'medicine_pos_company_order' %}" class="btn btn-outline no-print" style="font-size:12px;background:#fff8e6;border-color:#f0ad4e;color:#b8860b;"><i class="fa fa-truck"></i> Medicine Order</a>
         <a href="{% url 'medicine_subscription_page' %}" class="btn btn-outline no-print" style="font-size:12px;background:#f0e6ff;border-color:#6f42c1;color:#6f42c1;"><i class="fa fa-handshake-o"></i> Subscription</a>
+        <a href="{% url 'medicine_pos_settings' %}" class="btn btn-outline no-print" style="font-size:12px;background:#f4f4f4;border-color:#6c757d;color:#495057;"><i class="fa fa-cog"></i> Settings</a>
     </div>
 
     <div class="pos-wrapper">
@@ -204,6 +205,9 @@ body { min-height:100vh; display:flex; flex-direction:column; }
             <a href="{% url 'medicine_pos_dashboard' %}" class="btn btn-primary no-print">New Sale</a>
             <a href="{% url 'medicine_pos_order_list' %}" class="btn btn-outline no-print">Orders</a>
             <button class="btn btn-success no-print" onclick="printReceipt()"><i class="fa fa-print"></i> Print Invoice</button>
+            {% if partner.medicine_invoice_download_enabled %}
+            <a href="#" id="downloadInvoiceBtn" class="btn btn-outline no-print" style="display:none;border-color:#dc3545;color:#dc3545;"><i class="fa fa-file-pdf-o"></i> Download Invoice</a>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -302,6 +306,12 @@ function checkout() {
         if (res.success) {
             lastOrderData = res;
             document.getElementById('invoiceNum').textContent = res.invoice;
+            const dlBtn = document.getElementById('downloadInvoiceBtn');
+            if (dlBtn) {
+                dlBtn.href = '/dashboard/medicine-pos/orders/' + res.order_id + '/invoice/';
+                dlBtn.target = '_blank';
+                dlBtn.style.display = '';
+            }
             document.getElementById('successModal').classList.add('show');
             cart = [];
             renderCart();

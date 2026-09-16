@@ -16,6 +16,7 @@
             <input type="date" name="date" value="{{ date|date:'Y-m-d' }}" onchange="this.form.submit()" style="padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
             <a href="{% url 'pos_dashboard' %}" class="btn btn-outline" style="font-size:12px;"><i class="fa fa-plus"></i> New Sale</a>
         </form>
+        {% include 'store/_print_button.html' %}
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:25px;">

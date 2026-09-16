@@ -13,12 +13,18 @@
         <h1>Medicine POS Order #{{ order.invoice_number }}</h1>
         <div>
             <a href="{% url 'medicine_pos_order_list' %}" class="btn btn-outline"><i class="fa fa-arrow-left"></i> Back</a>
+            {% if partner.medicine_invoice_download_enabled %}
+            <a href="{% url 'medicine_pos_invoice_pdf' order.id %}" target="_blank" class="btn btn-outline" style="border-color:#dc3545;color:#dc3545;"><i class="fa fa-file-pdf-o"></i> Download Invoice</a>
+            {% else %}
+            <a href="{% url 'medicine_pos_settings' %}" class="btn btn-outline" title="Invoice download is off"><i class="fa fa-file-pdf-o"></i> Invoice download off</a>
+            {% endif %}
             {% if order.status == 'completed' %}
             <form method="POST" action="{% url 'medicine_pos_order_refund' order.id %}" style="display:inline;" onsubmit="return confirm('Refund this order? Stock will be restored.');">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-primary" style="background:#dc3545;border-color:#dc3545;"><i class="fa fa-undo"></i> Refund Order</button>
             </form>
             {% endif %}
+            {% include 'store/_print_button.html' %}
         </div>
     </div>
 

@@ -174,6 +174,7 @@ class Partner(models.Model):
     medicine_pos_enabled = models.BooleanField(default=False, verbose_name='Medicine POS Enabled', help_text='Master switch — enables Medicine POS with subscription tracking')
     medicine_inventory_enabled = models.BooleanField(default=True, verbose_name='Medicine Inventory Enabled', help_text='When ON, POS tracks stock and deducts inventory. When OFF, POS works without stock tracking.')
     medicine_trial_consumed = models.BooleanField(default=False, verbose_name='Medicine Trial Consumed', help_text='True once the partner has claimed their one-time free 60-day trial. Never reset.')
+    medicine_invoice_download_enabled = models.BooleanField(default=True, verbose_name='Invoice Download Enabled', help_text='When ON, the Medicine POS shows a "Download Invoice" button after a sale so customers can download a PDF copy of the receipt.')
     blocked = models.BooleanField(default=False, verbose_name='Block deletion', help_text='When blocked, this partner cannot be deleted from admin (prevents cascade delete through related medicine models)')
     custom_redirect_url = models.URLField(max_length=500, blank=True, verbose_name='Custom Logo Redirect URL', help_text='When someone clicks your store logo, they will be redirected to this URL. Leave blank to redirect to the homepage.')
     created = models.DateTimeField(default=timezone.now)
@@ -325,6 +326,11 @@ class Product(models.Model):
     old_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     label = models.CharField(max_length=20, choices=LABEL_CHOICES, blank=True, null=True)
     custom_label = models.CharField(max_length=50, blank=True, null=True, verbose_name='Custom Label')
+    CONDITION_CHOICES = [
+        ('new', 'New'),
+        ('used', 'Used'),
+    ]
+    condition = models.CharField(max_length=10, choices=CONDITION_CHOICES, default='new', verbose_name='Product Condition', help_text='New or Used. Choosing "Used" automatically labels the product as Used.')
     short_description = models.CharField(max_length=300, blank=True)
     description = models.TextField(blank=True)
     stock = models.IntegerField(default=0)
@@ -2261,6 +2267,11 @@ class HomepageSettings(models.Model):
     # ─── Homepage: random product sidebar ───
     show_random_product = models.BooleanField(default=True, verbose_name='Show "Random Product List" sidebars')
     random_list_heading = models.CharField(max_length=200, default='Random Product List', verbose_name='Sidebar heading')
+
+    # ─── Homepage: hot selling used products ───
+    show_used_products = models.BooleanField(default=True, verbose_name='Show "Hot Selling Used Product" section', help_text='Full-width grid of used products on the homepage')
+    used_products_heading = models.CharField(max_length=200, default='Hot Selling Used Product', verbose_name='Used products section heading')
+    show_used_products_sidebar = models.BooleanField(default=True, verbose_name='Replace "Random Product List" sidebars with "Hot Selling Used Product"', help_text='When ON the right-sidebar lists show used products; falls back to Random list when there are no used products or this is OFF')
 
     # ─── Homepage: partner products ───
     show_partner_products = models.BooleanField(default=True, verbose_name='Show "All Partner Product" section')

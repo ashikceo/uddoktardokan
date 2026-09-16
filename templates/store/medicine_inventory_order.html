@@ -42,7 +42,7 @@
         <a href="{% url 'medicine_inventory_log' %}?type=stock_out" class="btn btn-outline"><i class="fa fa-arrow-left"></i> Back to Stock Log</a>
       </div>
 
-      <div class="filters-box">
+      <div class="filters-box no-print">
         <div>
           <label>Date</label>
           <input type="date" id="orderDate" value="{{ sel_date|date:'Y-m-d' }}">
@@ -64,9 +64,12 @@
         <span><i class="fa fa-check-square-o"></i> Selected: <strong id="sumSelected">{{ selected_count }}</strong> medicines</span>
         <span><i class="fa fa-cubes"></i> Total Order Quantity: <strong id="sumQty">{{ total_order_qty }}</strong></span>
         <span style="flex:1;"></span>
-        <button type="button" class="btn btn-outline" id="selectAllBtn"><i class="fa fa-check-square-o"></i> Select All</button>
-        <button type="button" class="btn btn-outline" id="clearAllBtn"><i class="fa fa-square-o"></i> Clear Selection</button>
-        <button type="button" class="btn" style="background:#28a745;border-color:#28a745;color:#fff;" id="exportAllBtn"><i class="fa fa-file-excel-o"></i> Export Selected Company Orders</button>
+        <button type="button" class="btn btn-outline no-print" id="selectAllBtn"><i class="fa fa-check-square-o"></i> Select All</button>
+        <button type="button" class="btn btn-outline no-print" id="clearAllBtn"><i class="fa fa-square-o"></i> Clear Selection</button>
+        <button type="button" class="btn no-print" style="background:#28a745;border-color:#28a745;color:#fff;" id="exportAllBtn"><i class="fa fa-file-excel-o"></i> Export Selected Company Orders</button>
+        <button type="button" class="btn btn-outline no-print" id="exportAllNoMarkBtn" title="Download every company's order without changing draft status"><i class="fa fa-file-excel-o"></i> Export All (no status)</button>
+        <button type="button" class="btn btn-outline no-print" id="printPageBtn"><i class="fa fa-print"></i> Print Page</button>
+        <button type="button" class="btn btn-outline no-print" id="printSelectedBtn"><i class="fa fa-print"></i> Print Selected</button>
       </div>
 
       {% for company, rows in grouped.items %}
@@ -273,13 +276,14 @@
     window.location.href = url;
   }
 
-  function exportItems(items) {
+  function exportItems(items, mark) {
     if (!items.length) { showErr('Select at least one medicine with a positive order quantity.'); return; }
+    var doMark = mark !== false;
     fetch('{% url "medicine_pos_company_order_export" %}', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body: JSON.stringify({ order_date: orderDate.value, items: items })
+      body: JSON.stringify({ order_date: orderDate.value, items: items, mark: doMark })
     })
     .then(function (r) {
       var ct = r.headers.get('Content-Type') || '';
@@ -296,7 +300,7 @@
         a.href = url; a.download = name;
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
-        setTimeout(function () { window.location.reload(); }, 2500);
+        if (doMark) { setTimeout(function () { window.location.reload(); }, 2500); }
       });
     })
     .catch(function (err) { showErr(err.message || 'Export failed. Please try again.'); });
@@ -327,6 +331,36 @@
       var ok = validated(items);
       if (ok) exportItems(ok.map(function (it) { return { product_id: it.product_id, quantity: it.quantity }; }));
     });
+  });
+
+  document.getElementById('exportAllNoMarkBtn').addEventListener('click', function (e) {
+    e.preventDefault();
+    var all = collect(document, false).filter(function (it) { return it.quantity > 0; });
+    if (!all.length) { showErr('No medicines have a positive order quantity.'); return; }
+    clearErr();
+    exportItems(all.map(function (it) { return { product_id: it.product_id, quantity: it.quantity }; }), false);
+  });
+
+  document.getElementById('printPageBtn').addEventListener('click', function (e) {
+    e.preventDefault();
+    document.body.classList.remove('print-selected');
+    document.querySelectorAll('tr.print-sel').forEach(function (tr) { tr.classList.remove('print-sel'); });
+    window.print();
+  });
+
+  document.getElementById('printSelectedBtn').addEventListener('click', function (e) {
+    e.preventDefault();
+    var any = false;
+    document.querySelectorAll('tr[data-product-id]').forEach(function (tr) {
+      var cb = tr.querySelector('.order-check');
+      if (cb && cb.checked) { tr.classList.add('print-sel'); any = true; }
+      else { tr.classList.remove('print-sel'); }
+    });
+    if (!any) { showErr('Select at least one medicine to print.'); return; }
+    clearErr();
+    document.body.classList.add('print-selected');
+    window.print();
+    setTimeout(function () { document.body.classList.remove('print-selected'); }, 800);
   });
 })();
 </script>

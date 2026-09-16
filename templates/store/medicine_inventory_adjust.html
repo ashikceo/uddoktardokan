@@ -5,6 +5,7 @@
   <div class="row">
     <div class="col-md-8 col-md-offset-2">
       <a href="{% url 'medicine_inventory_list' %}" style="margin-bottom:15px;display:inline-block;"><i class="fa fa-arrow-left"></i> Back to Inventory</a>
+      {% include 'store/_print_button.html' %}
 
       {% if messages %}
       {% for msg in messages %}

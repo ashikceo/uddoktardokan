@@ -9,7 +9,7 @@
         <a href="{% url 'home' %}">Home</a> / <a href="{% url 'dashboard' %}">Dashboard</a> / <span>Refunds</span>
     </div>
 
-    <div class="page-header"><h1>Refund Requests</h1></div>
+    <div class="page-header"><h1>Refund Requests</h1>{% include 'store/_print_button.html' %}</div>
 
     {% if refunds %}
     <div style="overflow-x:auto;">

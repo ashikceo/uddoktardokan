@@ -9,6 +9,7 @@
         <div>
           <a href="{% url 'medicine_pos_dashboard' %}" class="btn btn-primary"><i class="fa fa-arrow-left"></i> Back to POS</a>
           <a href="{% url 'medicine_inventory_log' %}" class="btn btn-info"><i class="fa fa-history"></i> Stock Log</a>
+          {% include 'store/_print_button.html' %}
         </div>
       </div>
 
