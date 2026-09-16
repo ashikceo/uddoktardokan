@@ -181,7 +181,7 @@
 	.home-sections .category-section { margin-top: 14px; }
 
 	/* Compact hero height on small phones */
-	.nivoSlider img { max-height: 210px; }
+	.nivo-main-image { max-height: 210px; }
 
 	/* --------------------------------------------------------
 	   4) PRODUCT GRIDS — ALWAYS 2 COLUMNS <= 767px
