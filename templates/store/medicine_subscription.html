@@ -67,10 +67,9 @@
     </div>
     {% endif %}
 
-    {% if effective_status == 'expired' or effective_status == 'cancelled' or effective_status == 'inactive' %}
     <div style="border:1px solid #eee;border-radius:8px;padding:25px;background:#fff;margin-bottom:20px;">
         <h3 style="margin:0 0 15px;color:#333;font-size:18px;">Subscribe to Medicine POS</h3>
-        <p style="color:#555;margin-bottom:15px;font-size:14px;">Choose a subscription package and pay via wallet or manually.</p>
+        <p style="color:#555;margin-bottom:15px;font-size:14px;">Choose a subscription package and pay via wallet or manually. Packages are available anytime.</p>
 
         {% if packages %}
         <div style="display:flex;gap:15px;flex-wrap:wrap;margin-bottom:20px;">
@@ -136,6 +135,6 @@
         <p style="color:#6c757d;font-size:14px;">No subscription packages available yet. Please contact the admin.</p>
         {% endif %}
     </div>
-    {% endif %}
+
 </div>
 {% endblock %}

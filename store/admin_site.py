@@ -255,7 +255,7 @@ class CustomAdminSite(AdminSite):
                 partner.medicine_pos_enabled = True
                 partner.save(update_fields=['medicine_pos_enabled'])
                 sub, _ = MedicineSubscription.objects.get_or_create(partner=partner)
-                if sub.status == 'inactive':
+                if sub.status == 'inactive' and not partner.medicine_trial_consumed:
                     now = timezone.now()
                     sub.status = 'trial'
                     sub.trial_started_at = now
@@ -263,9 +263,11 @@ class CustomAdminSite(AdminSite):
                     sub.current_period_start = now
                     sub.current_period_end = now + timedelta(days=60)
                     sub.save()
+                    partner.medicine_trial_consumed = True
+                    partner.save(update_fields=['medicine_trial_consumed'])
                     messages.success(request, f'Medicine POS enabled for {partner.name} (60-day trial started)')
                 else:
-                    messages.warning(request, f'Medicine POS already active for {partner.name} (status: {sub.get_status_display()})')
+                    messages.warning(request, f'Medicine POS enabled for {partner.name} (trial already consumed — activate via subscription payment)')
 
             elif action == 'disable_pos':
                 partner.medicine_pos_enabled = False

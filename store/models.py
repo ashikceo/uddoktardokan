@@ -173,6 +173,7 @@ class Partner(models.Model):
     has_medicine_access = models.BooleanField(default=False, verbose_name='Medicine Catalog Access', help_text='Grant access to the global medicine product catalog for POS')
     medicine_pos_enabled = models.BooleanField(default=False, verbose_name='Medicine POS Enabled', help_text='Master switch — enables Medicine POS with subscription tracking')
     medicine_inventory_enabled = models.BooleanField(default=True, verbose_name='Medicine Inventory Enabled', help_text='When ON, POS tracks stock and deducts inventory. When OFF, POS works without stock tracking.')
+    medicine_trial_consumed = models.BooleanField(default=False, verbose_name='Medicine Trial Consumed', help_text='True once the partner has claimed their one-time free 60-day trial. Never reset.')
     blocked = models.BooleanField(default=False, verbose_name='Block deletion', help_text='When blocked, this partner cannot be deleted from admin (prevents cascade delete through related medicine models)')
     custom_redirect_url = models.URLField(max_length=500, blank=True, verbose_name='Custom Logo Redirect URL', help_text='When someone clicks your store logo, they will be redirected to this URL. Leave blank to redirect to the homepage.')
     created = models.DateTimeField(default=timezone.now)
@@ -2183,6 +2184,41 @@ class MedicineInventoryLog(models.Model):
 
     def __str__(self):
         return f'{self.adjustment_type}: {self.quantity:+d} — {self.inventory}'
+
+
+# ─── Medicine Company Order Draft ───
+
+class MedicineOrderDraft(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('exported', 'Exported'),
+        ('sent', 'Sent'),
+        ('received', 'Received'),
+        ('cancelled', 'Cancelled'),
+    ]
+    partner = models.ForeignKey(Partner, on_delete=models.CASCADE, related_name='medicine_order_drafts')
+    product = models.ForeignKey(MedicineProduct, on_delete=models.CASCADE, related_name='medicine_order_drafts')
+    order_date = models.DateField(db_index=True, help_text='Date this order applies to (stock-out date)')
+    quantity = models.PositiveIntegerField(default=0, help_text='Manual ORDER quantity entered by the shopkeeper. 0 = not entered.')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    exported_at = models.DateTimeField(null=True, blank=True)
+    exported_filename = models.CharField(max_length=255, blank=True)
+    note = models.CharField(max_length=300, blank=True)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Medicine Order Draft'
+        verbose_name_plural = 'Medicine Order Drafts'
+        unique_together = ('partner', 'product', 'order_date')
+        ordering = ['-order_date', '-updated']
+
+    @property
+    def manufacturer(self):
+        return self.product.manufacturer if self.product else ''
+
+    def __str__(self):
+        return f'{self.partner.name} — {self.product} — {self.order_date} ({self.quantity})'
 
 
 class DiscountCardContent(models.Model):

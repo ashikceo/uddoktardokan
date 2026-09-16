@@ -168,6 +168,10 @@ urlpatterns = [
     path('dashboard/medicine-pos/inventory/', views.medicine_inventory_list, name='medicine_inventory_list'),
     path('dashboard/medicine-pos/inventory/adjust/<int:pk>/', views.medicine_inventory_adjust, name='medicine_inventory_adjust'),
     path('dashboard/medicine-pos/inventory/log/', views.medicine_inventory_log, name='medicine_inventory_log'),
+    path('dashboard/medicine-pos/inventory/log/export/', views.medicine_inventory_log_export, name='medicine_inventory_log_export'),
+    path('dashboard/medicine-pos/inventory/log/order/', views.medicine_pos_company_order, name='medicine_pos_company_order'),
+    path('dashboard/medicine-pos/order/draft/save/', views.medicine_pos_order_draft_save, name='medicine_pos_order_draft_save'),
+    path('dashboard/medicine-pos/order/export/', views.medicine_pos_company_order_export, name='medicine_pos_company_order_export'),
     path('dashboard/medicine-pos/inventory/bulk/', views.medicine_inventory_bulk_update, name='medicine_inventory_bulk_update'),
 
     # Feature 4: Notifications

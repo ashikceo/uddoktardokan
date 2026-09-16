@@ -6,7 +6,11 @@
     <div class="col-md-12">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
         <h2 style="margin:0;"><i class="fa fa-history"></i> Stock Change Log</h2>
-        <a href="{% url 'medicine_inventory_list' %}" class="btn btn-primary"><i class="fa fa-arrow-left"></i> Back to Inventory</a>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <a href="{% url 'medicine_pos_company_order' %}" class="btn btn-warning"><i class="fa fa-truck"></i> Medicine Order</a>
+          <a href="{% url 'medicine_inventory_log_export' %}?type={{ type_filter }}" class="btn btn-success"><i class="fa fa-file-excel-o"></i> Export Excel</a>
+          <a href="{% url 'medicine_inventory_list' %}" class="btn btn-primary"><i class="fa fa-arrow-left"></i> Back to Inventory</a>
+        </div>
       </div>
 
       <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:10px 15px;margin-bottom:20px;">
@@ -24,11 +28,13 @@
             <tr>
               <th>Date &amp; Time</th>
               <th>Product</th>
+              <th>Manufacturer</th>
               <th>Type</th>
               <th style="text-align:center;">Quantity</th>
               <th style="text-align:center;">Balance After</th>
               <th>Reason</th>
               <th>Reference</th>
+              {% if type_filter == 'stock_out' or not type_filter %}<th>Export</th>{% endif %}
             </tr>
           </thead>
           <tbody>
@@ -39,6 +45,7 @@
                 <strong>{{ log.inventory.product.brand_name }}</strong>
                 <div style="color:#888;font-size:11px;">{{ log.inventory.product.strength }}</div>
               </td>
+              <td style="font-size:12px;">{{ log.inventory.product.manufacturer }}</td>
               <td>
                 {% if log.adjustment_type == 'sale' %}<span class="label label-danger">Sale</span>
                 {% elif log.adjustment_type == 'refund' %}<span class="label label-success">Refund</span>
@@ -54,9 +61,16 @@
               <td style="text-align:center;">{{ log.balance_after }}</td>
               <td style="font-size:12px;">{{ log.reason }}</td>
               <td style="font-size:12px;">{{ log.reference }}</td>
+              {% if type_filter == 'stock_out' or not type_filter %}
+              <td style="text-align:center;white-space:nowrap;">
+                {% if log.adjustment_type == 'stock_out' or log.adjustment_type == 'sale' %}
+                <a href="{% url 'medicine_inventory_log_export' %}?log_id={{ log.id }}" class="btn btn-xs btn-success" title="Export this product to Excel"><i class="fa fa-file-excel-o"></i> Excel</a>
+                {% endif %}
+              </td>
+              {% endif %}
             </tr>
             {% empty %}
-            <tr><td colspan="7" style="text-align:center;padding:30px;color:#888;">No stock changes recorded yet.</td></tr>
+            <tr><td colspan="9" style="text-align:center;padding:30px;color:#888;">No stock changes recorded yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>

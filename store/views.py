@@ -38,7 +38,7 @@ def validate_upload(file_obj):
     if file_obj.size > MAX_UPLOAD_SIZE:
         raise ValueError(f'File too large ({file_obj.size // 1024} KB). Maximum 5 MB.')
     return True
-from .models import Product, Category, Partner, Cart, CartItem, BlogPost, Contact, Order, OrderItem, Slider, HomeBanner, ProductReview, PartnerBanner, PartnerNavMenu, Page, SideBanner, ShopSidebarSlider, ShopBanner, ShopSidebarBottomBanner, ProductColorVariant, ProductSizeVariant, ProductImage, LandingPage, ServerFee, Coupon, CouponUsage, CustomOrder, AdminCommission, PartnerWallet, WalletTransaction, WithdrawalRequest, PayoutMethod, WalletSettings, PlatformBalance, Wishlist, WishlistItem, Notification, ShippingRule, RefundRequest, SiteLogo, ManualPaymentMethod, PosOrder, PosOrderItem, PartnerSlider, Conversation, Message, ConversationReadStatus, ProductQA, SupportTicket, TicketReply, PRESET_COLORS, PRESET_SIZES, MedicineProduct, MedicinePosOrder, MedicinePosOrderItem, MedicineSubscription, WalletRechargeInstruction, SubscriptionPackage, Address, THEME_CHOICES, MedicineInventory, MedicineInventoryLog, DiscountCardContent, ShopSliderConfig, PromoCard, BrandLogo
+from .models import Product, Category, Partner, Cart, CartItem, BlogPost, Contact, Order, OrderItem, Slider, HomeBanner, ProductReview, PartnerBanner, PartnerNavMenu, Page, SideBanner, ShopSidebarSlider, ShopBanner, ShopSidebarBottomBanner, ProductColorVariant, ProductSizeVariant, ProductImage, LandingPage, ServerFee, Coupon, CouponUsage, CustomOrder, AdminCommission, PartnerWallet, WalletTransaction, WithdrawalRequest, PayoutMethod, WalletSettings, PlatformBalance, Wishlist, WishlistItem, Notification, ShippingRule, RefundRequest, SiteLogo, ManualPaymentMethod, PosOrder, PosOrderItem, PartnerSlider, Conversation, Message, ConversationReadStatus, ProductQA, SupportTicket, TicketReply, PRESET_COLORS, PRESET_SIZES, MedicineProduct, MedicinePosOrder, MedicinePosOrderItem, MedicineSubscription, WalletRechargeInstruction, SubscriptionPackage, Address, THEME_CHOICES, MedicineInventory, MedicineInventoryLog, MedicineOrderDraft, DiscountCardContent, ShopSliderConfig, PromoCard, BrandLogo
 
 @user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='custom_admin:login')
 def admin_upload_image(request):
@@ -3424,23 +3424,44 @@ def pos_daily_report(request):
 # Medicine POS System
 # ════════════════════════════════════════════
 
+def _ensure_medicine_subscription(partner):
+    """Return partner's MedicineSubscription, enforcing a one-time free 60-day trial.
+
+    - Partners who have NEVER claimed a trial get the free 60-day trial once.
+    - Once claimed, a trial can never be re-issued — even if the subscription
+      row is later missing, the partner is locked and must buy a package.
+    """
+    sub = MedicineSubscription.objects.filter(partner=partner).first()
+    now = timezone.now()
+    if not sub:
+        if partner.medicine_trial_consumed:
+            sub = MedicineSubscription.objects.create(partner=partner, status='inactive')
+        else:
+            partner.medicine_trial_consumed = True
+            partner.save(update_fields=['medicine_trial_consumed'])
+            sub = MedicineSubscription.objects.create(
+                partner=partner,
+                status='trial',
+                trial_started_at=now,
+                trial_ends_at=now + timedelta(days=60),
+            )
+    else:
+        if sub.status == 'trial' and sub.trial_ends_at and now >= sub.trial_ends_at:
+            sub.status = 'expired'
+            sub.save()
+        elif sub.status == 'active' and sub.current_period_end and now >= sub.current_period_end:
+            sub.status = 'expired'
+            sub.save()
+        if sub.trial_started_at:
+            partner.medicine_trial_consumed = True
+            partner.save(update_fields=['medicine_trial_consumed'])
+    return sub
+
+
 def _check_medicine_pos_access(partner):
     """Check if partner has valid Medicine POS access. Returns (allowed, message, redirect_url).
-    Auto-creates a 60-day trial subscription for new users."""
-    sub = MedicineSubscription.objects.filter(partner=partner).first()
-    if not sub:
-        sub = MedicineSubscription.objects.create(
-            partner=partner,
-            status='trial',
-            trial_started_at=timezone.now(),
-            trial_ends_at=timezone.now() + timedelta(days=60),
-        )
-    if sub.status == 'trial' and sub.trial_ends_at and timezone.now() > sub.trial_ends_at:
-        sub.status = 'expired'
-        sub.save()
-    elif sub.status == 'active' and sub.current_period_end and timezone.now() > sub.current_period_end:
-        sub.status = 'expired'
-        sub.save()
+    Grants the one-time 60-day trial trial only to partners who never used it before."""
+    sub = _ensure_medicine_subscription(partner)
     if sub.is_locked:
         return False, '', 'medicine_subscription_page'
     return True, '', None
@@ -3832,19 +3853,7 @@ def medicine_subscription_page(request):
         messages.error(request, 'No seller account found.')
         return redirect('dashboard')
 
-    sub, created = MedicineSubscription.objects.get_or_create(
-        partner=partner,
-        defaults={
-            'status': 'trial',
-            'trial_started_at': timezone.now(),
-            'trial_ends_at': timezone.now() + timedelta(days=60),
-        }
-    )
-    if created:
-        sub.trial_started_at = timezone.now()
-        sub.trial_ends_at = timezone.now() + timedelta(days=60)
-        sub.status = 'trial'
-        sub.save()
+    sub = _ensure_medicine_subscription(partner)
 
     now = timezone.now()
     changed = False
@@ -4704,7 +4713,9 @@ def medicine_inventory_log(request):
     ).select_related('inventory', 'inventory__product')
 
     type_filter = request.GET.get('type', '')
-    if type_filter:
+    if type_filter == 'stock_out':
+        logs = logs.filter(adjustment_type__in=['stock_out', 'sale'])
+    elif type_filter:
         logs = logs.filter(adjustment_type=type_filter)
 
     paginator = Paginator(logs, 50)
@@ -4794,3 +4805,434 @@ def _auto_populate_inventory(partner):
                 batch = []
     if batch:
         MedicineInventory.objects.bulk_create(batch, ignore_conflicts=True)
+
+
+@login_required
+def medicine_inventory_log_export(request):
+    partner = get_object_or_404(Partner, user=request.user)
+    allowed, msg, sub_url = _check_medicine_pos_access(partner)
+    if not allowed:
+        if sub_url:
+            return redirect(sub_url)
+        messages.error(request, msg)
+        return redirect('dashboard')
+
+    logs = MedicineInventoryLog.objects.filter(
+        inventory__partner=partner
+    ).select_related('inventory', 'inventory__product')
+
+    log_id = request.GET.get('log_id')
+    if log_id:
+        logs = logs.filter(id=log_id)
+    else:
+        type_filter = request.GET.get('type', '')
+        if type_filter == 'stock_out':
+            logs = logs.filter(adjustment_type__in=['stock_out', 'sale'])
+        elif type_filter:
+            logs = logs.filter(adjustment_type=type_filter)
+
+    logs = logs.order_by('-created')
+
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from datetime import timezone as dt_timezone
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Stock Out Log'
+
+    headers = [
+        'Date & Time', 'Brand', 'Generic Name', 'Strength', 'Dosage Form',
+        'Pack Size', 'SKU', 'Manufacturer', 'Type', 'Qty Out',
+        'Balance After', 'Reason', 'Reference',
+    ]
+    header_font = Font(bold=True, color='FFFFFF', size=11)
+    header_fill = PatternFill(start_color='6F42C1', end_color='6F42C1', fill_type='solid')
+    thin_border = Border(
+        left=Side(style='thin', color='DEE2E6'),
+        right=Side(style='thin', color='DEE2E6'),
+        top=Side(style='thin', color='DEE2E6'),
+        bottom=Side(style='thin', color='DEE2E6'),
+    )
+    for col_idx, label in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=label)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = thin_border
+
+    for row_idx, log in enumerate(logs, 2):
+        product = log.inventory.product
+        created = log.created.astimezone(dt_timezone.utc).replace(tzinfo=None) if log.created and log.created.tzinfo else log.created
+        values = [
+            created, product.brand_name, product.generic_name,
+            product.strength, product.dosage_form, product.pack_size,
+            product.sku, product.manufacturer,
+            log.get_adjustment_type_display(), log.quantity,
+            log.balance_after, log.reason, log.reference,
+        ]
+        for col_idx, val in enumerate(values, 1):
+            if val is None:
+                val = ''
+            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+            cell.border = thin_border
+            cell.alignment = Alignment(vertical='center')
+
+    for col in ws.columns:
+        max_len = 0
+        for cell in col:
+            if cell.value is not None:
+                max_len = max(max_len, len(str(cell.value)))
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 50)
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="stock_out_log.xlsx"'
+    wb.save(response)
+    return response
+
+
+@login_required
+def medicine_pos_company_order(request):
+    try:
+        partner = request.user.partner
+    except Partner.DoesNotExist:
+        messages.error(request, 'No seller account found.')
+        return redirect('dashboard')
+    allowed, msg, sub_url = _check_medicine_pos_access(partner)
+    if not allowed:
+        if sub_url:
+            return redirect(sub_url)
+        messages.error(request, msg)
+        return redirect('dashboard')
+
+    today = timezone.now().date()
+    date_str = request.GET.get('date', '').strip()
+    if date_str:
+        try:
+            sel_date = timezone.datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            sel_date = today
+    else:
+        sel_date = today
+
+    mfr = request.GET.get('manufacturer', '').strip()
+
+    log_qs = MedicineInventoryLog.objects.filter(
+        inventory__partner=partner,
+        adjustment_type__in=['sale', 'stock_out'],
+        created__date=sel_date,
+    )
+    agg = (log_qs.values('inventory__product')
+           .annotate(
+               total_out=Sum('quantity'),
+               brand=F('inventory__product__brand_name'),
+               generic=F('inventory__product__generic_name'),
+               strength=F('inventory__product__strength'),
+               dosage=F('inventory__product__dosage_form'),
+               pack=F('inventory__product__pack_size'),
+               sku=F('inventory__product__sku'),
+               manufacturer=F('inventory__product__manufacturer'),
+           )
+           .order_by('brand'))
+    if mfr:
+        agg = agg.filter(manufacturer=mfr)
+    agg_rows = list(agg)
+
+    product_ids = [r['inventory__product'] for r in agg_rows]
+    stocks = dict(
+        MedicineInventory.objects.filter(partner=partner, product_id__in=product_ids)
+        .values_list('product_id', 'stock')
+    )
+
+    drafts_by_product = {}
+    if product_ids:
+        for d in MedicineOrderDraft.objects.filter(partner=partner, order_date=sel_date, product_id__in=product_ids):
+            drafts_by_product[d.product_id] = d
+
+    companies = [m for m in MedicineInventoryLog.objects.filter(
+        inventory__partner=partner,
+        adjustment_type__in=['sale', 'stock_out'],
+        created__date=sel_date,
+    ).values_list('inventory__product__manufacturer', flat=True).distinct().order_by('inventory__product__manufacturer') if m]
+
+    grouped = {}
+    for r in agg_rows:
+        m_name = r['manufacturer'] or 'Unknown'
+        rows = grouped.setdefault(m_name, [])
+        pid = r['inventory__product']
+        draft = drafts_by_product.get(pid)
+        rows.append({
+            'product_id': pid,
+            'brand': r['brand'],
+            'generic': r['generic'] or '',
+            'strength': r['strength'] or '',
+            'dosage': r['dosage'] or '',
+            'pack': r['pack'] or '',
+            'sku': r['sku'] or '',
+            'manufacturer': r['manufacturer'] or '',
+            'total_out': abs(r['total_out'] or 0),
+            'current_stock': stocks.get(pid, 0),
+            'draft_qty': draft.quantity if draft else 0,
+            'draft_status': draft.get_status_display() if draft else '',
+            'draft_exported_at': draft.exported_at if draft else None,
+        })
+
+    all_rows = [row for rows in grouped.values() for row in rows]
+    selected_count = sum(1 for r in all_rows if r['draft_qty'] > 0)
+    total_order_qty = sum(r['draft_qty'] for r in all_rows)
+
+    history = MedicineOrderDraft.objects.filter(partner=partner)\
+        .exclude(status='draft').select_related('product').order_by('-updated')[:20]
+
+    return render(request, 'store/medicine_inventory_order.html', {
+        'partner': partner,
+        'sel_date': sel_date,
+        'mfr': mfr,
+        'companies': companies,
+        'grouped': grouped,
+        'history': history,
+        'selected_count': selected_count,
+        'total_order_qty': total_order_qty,
+    })
+
+
+@login_required
+def medicine_pos_order_draft_save(request):
+    try:
+        partner = request.user.partner
+    except Partner.DoesNotExist:
+        return JsonResponse({'error': 'No seller account'}, status=403)
+    allowed, msg, sub_url = _check_medicine_pos_access(partner)
+    if not allowed:
+        return JsonResponse({'error': 'Subscription required.'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    try:
+        pid = int(data.get('product_id'))
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Invalid product'}, status=400)
+
+    qty_raw = data.get('quantity')
+    if qty_raw is None or qty_raw == '':
+        qty = 0
+    else:
+        try:
+            qty = int(float(qty_raw))
+        except (TypeError, ValueError):
+            return JsonResponse({'error': 'Order quantity must be a number'}, status=400)
+        if qty < 0:
+            return JsonResponse({'error': 'Order quantity cannot be negative'}, status=400)
+
+    date_str = data.get('order_date', '')
+    try:
+        od = timezone.datetime.strptime(str(date_str), '%Y-%m-%d').date()
+    except ValueError:
+        od = timezone.now().date()
+
+    # Server-side: product must belong to this partner's inventory.
+    if not MedicineInventory.objects.filter(partner=partner, product_id=pid).exists():
+        return JsonResponse({'error': 'Product not in your inventory'}, status=400)
+
+    draft, _ = MedicineOrderDraft.objects.get_or_create(
+        partner=partner, product_id=pid, order_date=od,
+        defaults={'quantity': qty},
+    )
+    if draft.quantity != qty:
+        draft.quantity = qty
+        if draft.status != 'draft':
+            draft.status = 'draft'
+            draft.exported_at = None
+            draft.exported_filename = ''
+        draft.save()
+    return JsonResponse({'ok': True, 'quantity': draft.quantity, 'status': draft.get_status_display()})
+
+
+def _order_xlsx_filename(manufacturer, order_date):
+    safe = ''.join(c if c.isalnum() or c == ' ' else ' ' for c in manufacturer or 'Unknown')
+    safe = '_'.join(safe.split())
+    return f'{safe}_Order_{order_date.strftime("%Y-%m-%d")}.xlsx'
+
+
+def _build_order_workbook(manufacturer, rows, partner, order_date, out_map, stocks):
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Order'
+    purple = '6F42C1'
+    title_font = Font(bold=True, size=16, color=purple)
+    sub_font = Font(bold=True, size=12, color='333333')
+    header_font = Font(bold=True, color='FFFFFF', size=11)
+    header_fill = PatternFill(start_color=purple, end_color=purple, fill_type='solid')
+    thin = Side(style='thin', color='DEE2E6')
+    thin_border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    ws.cell(1, 1, manufacturer).font = title_font
+    ws.cell(2, 1, 'Medicine Order List').font = sub_font
+    ws.cell(3, 1, f'Date: {order_date.strftime("%d %B %Y")}')
+    ws.cell(4, 1, f'Ordered by: {partner.name}{" (" + str(partner.phone) + ")" if partner.phone else ""}')
+
+    headers = ['Sl', 'Medicine Name', 'Strength', 'Generic Name', 'Form', 'Pack Size',
+               'SKU', 'Current Stock', 'Stock Out', 'Order Quantity', 'Unit']
+    header_row = 6
+    for col_idx, label in enumerate(headers, 1):
+        cell = ws.cell(header_row, col_idx, label)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+    row_idx = header_row + 1
+    total_qty = 0
+    for i, product, qty in rows:
+        total_qty += qty
+        values = [
+            i, product.brand_name, product.strength or '', product.generic_name or '',
+            product.dosage_form or '', product.pack_size or '', product.sku or '',
+            stocks.get(product.id, 0), out_map.get(product.id, 0), qty, 'pcs',
+        ]
+        for col_idx, val in enumerate(values, 1):
+            cell = ws.cell(row_idx, col_idx, val)
+            cell.border = thin_border
+            cell.alignment = Alignment(vertical='center')
+            if col_idx in (8, 9, 10):
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+        row_idx += 1
+
+    total_font = Font(bold=True, size=12)
+    ws.cell(row_idx, 1, f'Total Medicines: {len(rows)}').font = total_font
+    ws.cell(row_idx + 1, 1, f'Total Order Quantity: {total_qty}').font = total_font
+    ws.cell(row_idx + 1, 10, total_qty).font = total_font
+
+    ws.freeze_panes = f'A{header_row + 1}'
+    for col in ws.columns:
+        max_len = 0
+        for cell in col:
+            if cell.value is not None:
+                max_len = max(max_len, len(str(cell.value)))
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 55)
+    return wb
+
+
+@login_required
+def medicine_pos_company_order_export(request):
+    try:
+        partner = request.user.partner
+    except Partner.DoesNotExist:
+        messages.error(request, 'No seller account found.')
+        return redirect('dashboard')
+    allowed, msg, sub_url = _check_medicine_pos_access(partner)
+    if not allowed:
+        if sub_url:
+            return redirect(sub_url)
+        messages.error(request, msg)
+        return redirect('dashboard')
+    if request.method != 'POST':
+        messages.error(request, 'Invalid request.')
+        return redirect('medicine_pos_company_order')
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    date_str = data.get('order_date', '')
+    try:
+        od = timezone.datetime.strptime(str(date_str), '%Y-%m-%d').date()
+    except ValueError:
+        od = timezone.now().date()
+
+    valid_products = set(
+        MedicineInventory.objects.filter(partner=partner).values_list('product_id', flat=True)
+    )
+    items = data.get('items', [])
+    selected = []
+    for it in items:
+        try:
+            pid = int(it.get('product_id'))
+            qty = int(it.get('quantity'))
+        except (TypeError, ValueError):
+            continue
+        if pid in valid_products and qty >= 1:
+            selected.append((pid, qty))
+    if not selected:
+        return JsonResponse({'error': 'Select at least one medicine with a positive order quantity.'}, status=400)
+
+    products = MedicineProduct.objects.in_bulk([pid for pid, _ in selected])
+    products = {pid: p for pid, p in products.items() if p}
+
+    out_map = dict(
+        MedicineInventoryLog.objects.filter(
+            inventory__partner=partner,
+            adjustment_type__in=['sale', 'stock_out'],
+            created__date=od,
+            inventory__product_id__in=list(products),
+        ).values('inventory__product_id').annotate(out=Sum('quantity'))
+        .values_list('inventory__product_id', 'out')
+    )
+    out_map = {pid: abs(v) for pid, v in out_map.items()}
+
+    stocks = dict(
+        MedicineInventory.objects.filter(partner=partner, product_id__in=list(products))
+        .values_list('product_id', 'stock')
+    )
+
+    groups = {}
+    for pid, qty in selected:
+        p = products.get(pid)
+        if not p:
+            continue
+        m_name = p.manufacturer or 'Unknown'
+        groups.setdefault(m_name, []).append((p, qty))
+
+    if not groups:
+        return JsonResponse({'error': 'Select at least one valid medicine.'}, status=400)
+
+    def _mark_exported(filename):
+        for pid, qty in selected:
+            if pid not in products:
+                continue
+            draft, _ = MedicineOrderDraft.objects.get_or_create(
+                partner=partner, product_id=pid, order_date=od,
+                defaults={'quantity': qty},
+            )
+            draft.status = 'exported'
+            draft.exported_at = timezone.now()
+            draft.exported_filename = filename
+            draft.quantity = qty
+            draft.save()
+
+    if len(groups) == 1:
+        m_name, rows = next(iter(groups.items()))
+        wb = _build_order_workbook(m_name, [(i, p, q) for i, (p, q) in enumerate(rows, 1)],
+                                   partner, od, out_map, stocks)
+        filename = _order_xlsx_filename(m_name, od)
+        _mark_exported(filename)
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        wb.save(response)
+        return response
+
+    import io as _io
+    import zipfile
+    buffer = _io.BytesIO()
+    filenames = []
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for m_name, rows in groups.items():
+            wb = _build_order_workbook(m_name, [(i, p, q) for i, (p, q) in enumerate(rows, 1)],
+                                       partner, od, out_map, stocks)
+            filename = _order_xlsx_filename(m_name, od)
+            filenames.append(filename)
+            inner = _io.BytesIO()
+            wb.save(inner)
+            zf.writestr(filename, inner.getvalue())
+    zip_name = f'Medicine_Company_Orders_{od.strftime("%Y-%m-%d")}.zip'
+    _mark_exported(zip_name)
+    response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{zip_name}"'
+    return response
