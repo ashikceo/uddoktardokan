@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Products - {{ partner.store_name|default:"My Store" }}</title>
+<title>Products - {{ partner.name|default:"My Store" }}</title>
 <style>
   @page { size: A4 landscape; margin: 15mm; }
   body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #333; }
@@ -16,8 +16,8 @@
 </style>
 </head>
 <body>
-  <h1>Products — {{ partner.store_name|default:"My Store" }}</h1>
-  <div class="meta">Generated {{ now|date:"j M Y, g:i A" }} &bull; {{ products|length }} product(s)</div>
+  <h1>Products — {{ partner.name|default:"My Store" }}</h1>
+  <div class="meta">Generated {{ now|date:"j M Y, g:i A" }} &bull; {{ products|length }} product(s){% if filters.q %} &bull; Search: "{{ filters.q }}"{% endif %}{% if filters.status %} &bull; Status: {{ filters.status|title }}{% endif %}{% if filters.stock %} &bull; Stock: {{ filters.stock|title }}{% endif %}{% if filters.condition %} &bull; Condition: {{ filters.condition|title }}{% endif %}</div>
   <table>
     <thead>
       <tr>

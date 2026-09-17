@@ -25,6 +25,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django_ratelimit.decorators import ratelimit
+from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
 
@@ -1605,27 +1606,155 @@ def dashboard_union_agent_add(request):
     return render(request, 'store/dashboard_union_agent_form.html', {'partner': partner})
 
 
+PRODUCTS_PAGE_SIZE = 24
+
+PRODUCT_SORT_OPTIONS = {
+    'newest': '-created',
+    'oldest': 'created',
+    'name_asc': 'name',
+    'name_desc': '-name',
+    'price_asc': 'price',
+    'price_desc': '-price',
+    'stock_asc': 'stock',
+    'stock_desc': '-stock',
+    'updated': '-updated',
+}
+
+
+def _dashboard_products_queryset(partner):
+    return Product.objects.filter(partner=partner, trashed=False)
+
+
+def _dashboard_products_filters(request):
+    """Parse and validate the GET filters for the products list."""
+    raw = request.GET
+    return {
+        'q': (raw.get('q') or '').strip()[:100],
+        'status': raw.get('status') if raw.get('status') in ('published', 'draft') else '',
+        'category': raw.get('category') if (raw.get('category') or '').isdigit() else '',
+        'stock': raw.get('stock') if raw.get('stock') in ('in', 'low', 'out') else '',
+        'condition': raw.get('condition') if raw.get('condition') in ('new', 'used') else '',
+        'sort': raw.get('sort') if raw.get('sort') in PRODUCT_SORT_OPTIONS else 'newest',
+    }
+
+
+def _apply_dashboard_product_filters(queryset, filters):
+    q = filters['q']
+    if q:
+        queryset = queryset.filter(
+            Q(name__icontains=q) | Q(sku__icontains=q) | Q(medicine_generic_name__icontains=q)
+        )
+    if filters['status'] == 'published':
+        queryset = queryset.filter(is_published=True)
+    elif filters['status'] == 'draft':
+        queryset = queryset.filter(is_published=False)
+    if filters['category']:
+        queryset = queryset.filter(category_id=filters['category'])
+    stock = filters['stock']
+    if stock == 'out':
+        queryset = queryset.filter(stock__lte=0)
+    elif stock == 'low':
+        queryset = queryset.filter(stock__gt=0, stock__lte=F('low_stock_threshold'))
+    elif stock == 'in':
+        queryset = queryset.filter(stock__gt=F('low_stock_threshold'))
+    if filters['condition']:
+        queryset = queryset.filter(condition=filters['condition'])
+    return queryset.order_by(PRODUCT_SORT_OPTIONS[filters['sort']])
+
+
+def _dashboard_products_query_string(filters):
+    params = {}
+    if filters['q']:
+        params['q'] = filters['q']
+    for key in ('status', 'category', 'stock', 'condition'):
+        if filters[key]:
+            params[key] = filters[key]
+    if filters['sort'] and filters['sort'] != 'newest':
+        params['sort'] = filters['sort']
+    return urlencode(params)
+
+
+def _dashboard_products_stats(partner):
+    """Single-query aggregate of the summary card counts."""
+    return Product.objects.filter(partner=partner).aggregate(
+        total=Count('id', filter=Q(trashed=False)),
+        published=Count('id', filter=Q(trashed=False, is_published=True)),
+        draft=Count('id', filter=Q(trashed=False, is_published=False)),
+        out_of_stock=Count('id', filter=Q(trashed=False, stock__lte=0)),
+        low_stock=Count('id', filter=Q(trashed=False, stock__gt=0, stock__lte=F('low_stock_threshold'))),
+        trashed=Count('id', filter=Q(trashed=True)),
+    )
+
+
+def _dashboard_products_category_options(partner):
+    return (
+        Product.objects.filter(partner=partner, trashed=False, category__isnull=False)
+        .values('category_id', 'category__name')
+        .annotate(total=Count('id'))
+        .order_by('category__name')
+    )
+
+
+def _safe_dashboard_next(request, fallback='dashboard_products'):
+    nxt = request.POST.get('next') or request.GET.get('next')
+    if nxt and url_has_allowed_host_and_scheme(
+        nxt, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return nxt
+    return reverse(fallback)
+
+
 @login_required
 def dashboard_products(request):
     try:
         partner = request.user.partner
     except Partner.DoesNotExist:
         return redirect('dashboard')
-    q = request.GET.get('q', '').strip()
-    products = Product.objects.filter(partner=partner, trashed=False).select_related('category')
-    if q:
-        products = products.filter(Q(name__icontains=q) | Q(sku__icontains=q) | Q(medicine_generic_name__icontains=q))
-    trashed_count = Product.objects.filter(partner=partner, trashed=True).count()
-    paginator = Paginator(products, 999999)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+
+    filters = _dashboard_products_filters(request)
+    stats = _dashboard_products_stats(partner)
+    active_filters = sum(
+        1 for key in ('q', 'status', 'category', 'stock', 'condition') if filters[key]
+    )
+
+    queryset = _apply_dashboard_product_filters(
+        _dashboard_products_queryset(partner)
+        .select_related('category')
+        .only(
+            'id', 'name', 'sku', 'price', 'cost_price', 'stock', 'low_stock_threshold',
+            'available', 'is_published', 'condition', 'image', 'created', 'updated',
+            'category__id', 'category__name',
+        ),
+        filters,
+    )
+    paginator = Paginator(queryset, PRODUCTS_PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    query_string = _dashboard_products_query_string(filters)
+
     return render(request, 'store/dashboard_products.html', {
         'products': page_obj,
         'partner': partner,
-        'trashed_count': trashed_count,
-        'query': q,
+        'query': filters['q'],
+        'filters': filters,
+        'stats': stats,
+        'trashed_count': stats['trashed'],
         'page_obj': page_obj,
+        'filtered_count': paginator.count,
+        'active_filters': active_filters,
+        'category_options': _dashboard_products_category_options(partner),
+        'sort_options': PRODUCT_SORT_OPTIONS,
+        'query_string': query_string,
+        'export_query_string': query_string,
     })
+
+
+def _dashboard_products_export_queryset(request, partner):
+    filters = _dashboard_products_filters(request)
+    queryset = _apply_dashboard_product_filters(
+        _dashboard_products_queryset(partner).select_related('category'),
+        filters,
+    )
+    return queryset, filters
 
 
 @login_required
@@ -1634,9 +1763,10 @@ def dashboard_products_export_csv(request):
         partner = request.user.partner
     except Partner.DoesNotExist:
         return redirect('dashboard')
-    products = Product.objects.filter(partner=partner, trashed=False).select_related('category')
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="products.csv"'
+    products, _filters = _dashboard_products_export_queryset(request, partner)
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="products-{timezone.localdate():%Y-%m-%d}.csv"'
+    response.write('\ufeff')
     writer = csv.writer(response)
     writer.writerow(['Name', 'SKU', 'Category', 'Price', 'Old Price', 'Cost Price', 'Profit', 'Label', 'Stock', 'Available', 'Created'])
     for p in products:
@@ -1663,14 +1793,16 @@ def dashboard_products_export_pdf(request):
         partner = request.user.partner
     except Partner.DoesNotExist:
         return redirect('dashboard')
-    products = Product.objects.filter(partner=partner, trashed=False).select_related('category')
+    products, filters = _dashboard_products_export_queryset(request, partner)
     html = render_to_string('store/dashboard_products_pdf.html', {
         'products': products,
         'partner': partner,
+        'filters': filters,
+        'now': timezone.now(),
     }, request)
     pdf = HTML(string=html).write_pdf()
     response = HttpResponse(pdf, content_type='application/pdf')
-    response['Content-Disposition'] = 'inline; filename="products.pdf"'
+    response['Content-Disposition'] = f'inline; filename="products-{timezone.localdate():%Y-%m-%d}.pdf"'
     return response
 
 
@@ -2215,14 +2347,41 @@ def dashboard_product_bulk_delete(request):
         partner = request.user.partner
     except Partner.DoesNotExist:
         return redirect('dashboard')
+    next_url = _safe_dashboard_next(request)
     product_ids = request.POST.getlist('product_ids')
     if not product_ids:
         messages.error(request, 'No products selected.')
-        return redirect('dashboard_products')
+        return redirect(next_url)
     now = timezone.now()
     count = Product.objects.filter(partner=partner, id__in=product_ids, trashed=False).update(trashed=True, trashed_at=now)
     messages.success(request, f'{count} product(s) moved to trash.')
-    return redirect('dashboard_products')
+    return redirect(next_url)
+
+
+@login_required
+def dashboard_product_bulk_status(request):
+    if request.method != 'POST':
+        return redirect('dashboard_products')
+    try:
+        partner = request.user.partner
+    except Partner.DoesNotExist:
+        return redirect('dashboard')
+    next_url = _safe_dashboard_next(request)
+    product_ids = request.POST.getlist('product_ids')
+    action = request.POST.get('bulk_action', '')
+    if not product_ids:
+        messages.error(request, 'No products selected.')
+        return redirect(next_url)
+    queryset = Product.objects.filter(partner=partner, id__in=product_ids, trashed=False)
+    if action == 'publish':
+        count = queryset.update(is_published=True)
+        messages.success(request, f'{count} product(s) published.')
+    elif action == 'unpublish':
+        count = queryset.update(is_published=False)
+        messages.success(request, f'{count} product(s) saved as draft.')
+    else:
+        messages.error(request, 'Unknown bulk action.')
+    return redirect(next_url)
 
 
 @login_required

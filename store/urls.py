@@ -62,6 +62,7 @@ urlpatterns = [
     path('dashboard/products/export/csv/', views.dashboard_products_export_csv, name='dashboard_products_export_csv'),
     path('dashboard/products/export/pdf/', views.dashboard_products_export_pdf, name='dashboard_products_export_pdf'),
     path('dashboard/products/bulk-delete/', views.dashboard_product_bulk_delete, name='dashboard_product_bulk_delete'),
+    path('dashboard/products/bulk-status/', views.dashboard_product_bulk_status, name='dashboard_product_bulk_status'),
     path('dashboard/products/trash/', views.dashboard_trash_list, name='dashboard_trash_list'),
     path('dashboard/products/trash/restore/', views.dashboard_trash_restore, name='dashboard_trash_restore'),
     path('dashboard/products/trash/restore-all/', views.dashboard_trash_restore_all, name='dashboard_trash_restore_all'),

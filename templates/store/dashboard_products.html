@@ -4,180 +4,283 @@
 {% block title %}My Products - Uddoktar Dokan{% endblock %}
 
 {% block extra_css %}
-<style>
-.pub-badge { display:inline-block; font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
-.pub-badge-live { background:#e6f7ee; color:#1a8a4a; }
-.pub-badge-draft { background:#fdf1dd; color:#b5730a; }
-</style>
+<link rel="stylesheet" href="{% static 'css/dashboard-products.css' %}">
 {% endblock %}
 
 {% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    var selectAll = document.getElementById('select-all');
-    var checkboxes = document.querySelectorAll('.product-checkbox');
-    var bulkBar = document.getElementById('bulk-action-bar');
-    var selectedCount = document.getElementById('selected-count');
-
-    function updateBulkBar() {
-        var checked = document.querySelectorAll('.product-checkbox:checked').length;
-        if (checked > 0) {
-            bulkBar.style.display = 'flex';
-            selectedCount.textContent = checked + ' product(s) selected';
-        } else {
-            bulkBar.style.display = 'none';
-        }
-    }
-
-    if (selectAll) {
-        selectAll.addEventListener('change', function() {
-            checkboxes.forEach(function(cb) { cb.checked = selectAll.checked; });
-            updateBulkBar();
-        });
-    }
-
-    checkboxes.forEach(function(cb) {
-        cb.addEventListener('change', updateBulkBar);
-    });
-});
-</script>
+<script src="{% static 'js/dashboard-products.js' %}"></script>
 {% endblock %}
 
 {% block content %}
-<div class="container page-content">
+<div class="container page-content ud-products-page">
     <div class="breadcrumb">
         <a href="{% url 'home' %}">Home</a> / <a href="{% url 'dashboard' %}">Dashboard</a> / <span>My Products</span>
     </div>
-    <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-        <h1>My Products</h1>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <a href="{% url 'dashboard_products_export_csv' %}" class="btn btn-outline" style="padding:8px 16px; font-size:13px;">
-                <i class="fa fa-download"></i> CSV
+
+    <div class="ud-products-head">
+        <div class="ud-products-head__text">
+            <h1>My Products</h1>
+            <p>Manage your catalog, stock, pricing and publishing — {{ stats.total }} product{{ stats.total|pluralize }} in total.</p>
+        </div>
+        <div class="ud-products-head__actions">
+            <a href="{% url 'dashboard_products_export_csv' %}{% if export_query_string %}?{{ export_query_string }}{% endif %}" class="ud-btn ud-btn--ghost">
+                <i class="fa fa-download" aria-hidden="true"></i> CSV
             </a>
-            <a href="{% url 'dashboard_products_export_pdf' %}" class="btn btn-outline" style="padding:8px 16px; font-size:13px;">
-                <i class="fa fa-file-pdf"></i> PDF
+            <a href="{% url 'dashboard_products_export_pdf' %}{% if export_query_string %}?{{ export_query_string }}{% endif %}" class="ud-btn ud-btn--ghost">
+                <i class="fa fa-file-pdf-o" aria-hidden="true"></i> PDF
             </a>
-            <a href="{% url 'dashboard_trash_list' %}" class="btn btn-outline" style="padding:8px 16px; font-size:13px;">
-                <i class="fa fa-trash"></i> Trash{% if trashed_count %} ({{ trashed_count }}){% endif %}
+            <a href="{% url 'dashboard_trash_list' %}" class="ud-btn ud-btn--ghost">
+                <i class="fa fa-trash-o" aria-hidden="true"></i> Trash{% if trashed_count %} <span class="ud-btn__count">{{ trashed_count }}</span>{% endif %}
             </a>
-            <a href="{% url 'dashboard_product_create' %}" class="btn btn-primary">+ Add Product</a>
+            <a href="{% url 'dashboard_product_create' %}" class="ud-btn ud-btn--primary">
+                <i class="fa fa-plus" aria-hidden="true"></i> Add Product
+            </a>
         </div>
     </div>
 
-    <form method="GET" style="margin-bottom:15px; display:flex; gap:8px; align-items:center;">
-        <input type="text" name="q" class="form-control" placeholder="Search by name, SKU, or generic name..." value="{{ query }}" style="max-width:400px;">
-        <button type="submit" class="btn btn-outline" style="padding:8px 16px;"><i class="fa fa-search"></i> Search</button>
-        {% if query %}
-        <a href="{% url 'dashboard_products' %}" class="btn btn-outline" style="padding:8px 16px;">Clear</a>
-        {% endif %}
+    <div class="ud-products-cards">
+        <a class="ud-stat-card{% if not active_filters %} is-active{% endif %}" href="{% url 'dashboard_products' %}">
+            <span class="ud-stat-card__icon ud-stat-card__icon--total"><i class="fa fa-cube" aria-hidden="true"></i></span>
+            <span class="ud-stat-card__value">{{ stats.total }}</span>
+            <span class="ud-stat-card__label">Total Products</span>
+        </a>
+        <a class="ud-stat-card{% if filters.status == 'published' %} is-active{% endif %}" href="{% url 'dashboard_products' %}?status=published">
+            <span class="ud-stat-card__icon ud-stat-card__icon--published"><i class="fa fa-check-circle" aria-hidden="true"></i></span>
+            <span class="ud-stat-card__value">{{ stats.published }}</span>
+            <span class="ud-stat-card__label">Published</span>
+        </a>
+        <a class="ud-stat-card{% if filters.status == 'draft' %} is-active{% endif %}" href="{% url 'dashboard_products' %}?status=draft">
+            <span class="ud-stat-card__icon ud-stat-card__icon--draft"><i class="fa fa-file-o" aria-hidden="true"></i></span>
+            <span class="ud-stat-card__value">{{ stats.draft }}</span>
+            <span class="ud-stat-card__label">Drafts</span>
+        </a>
+        <a class="ud-stat-card{% if filters.stock == 'out' %} is-active{% endif %}" href="{% url 'dashboard_products' %}?stock=out">
+            <span class="ud-stat-card__icon ud-stat-card__icon--out"><i class="fa fa-times-circle" aria-hidden="true"></i></span>
+            <span class="ud-stat-card__value">{{ stats.out_of_stock }}</span>
+            <span class="ud-stat-card__label">Out of Stock</span>
+        </a>
+        <a class="ud-stat-card{% if filters.stock == 'low' %} is-active{% endif %}" href="{% url 'dashboard_products' %}?stock=low">
+            <span class="ud-stat-card__icon ud-stat-card__icon--low"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i></span>
+            <span class="ud-stat-card__value">{{ stats.low_stock }}</span>
+            <span class="ud-stat-card__label">Low Stock</span>
+        </a>
+    </div>
+
+    <form method="get" action="{% url 'dashboard_products' %}" class="ud-products-toolbar" role="search">
+        <div class="ud-products-toolbar__search">
+            <i class="fa fa-search" aria-hidden="true"></i>
+            <input type="search" name="q" value="{{ query }}" placeholder="Search by name, SKU or generic name..." aria-label="Search products" autocomplete="off">
+        </div>
+        <div class="ud-products-filters">
+            <label class="ud-filter">
+                <span class="ud-filter__label">Status</span>
+                <select name="status">
+                    <option value="">All</option>
+                    <option value="published"{% if filters.status == 'published' %} selected{% endif %}>Published</option>
+                    <option value="draft"{% if filters.status == 'draft' %} selected{% endif %}>Draft</option>
+                </select>
+            </label>
+            <label class="ud-filter">
+                <span class="ud-filter__label">Category</span>
+                <select name="category">
+                    <option value="">All categories</option>
+                    {% for cat in category_options %}
+                    <option value="{{ cat.category_id }}"{% if filters.category == cat.category_id|stringformat:'s' %} selected{% endif %}>{{ cat.category__name }} ({{ cat.total }})</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="ud-filter">
+                <span class="ud-filter__label">Stock</span>
+                <select name="stock">
+                    <option value="">All stock</option>
+                    <option value="in"{% if filters.stock == 'in' %} selected{% endif %}>In stock</option>
+                    <option value="low"{% if filters.stock == 'low' %} selected{% endif %}>Low stock</option>
+                    <option value="out"{% if filters.stock == 'out' %} selected{% endif %}>Out of stock</option>
+                </select>
+            </label>
+            <label class="ud-filter">
+                <span class="ud-filter__label">Condition</span>
+                <select name="condition">
+                    <option value="">All conditions</option>
+                    <option value="new"{% if filters.condition == 'new' %} selected{% endif %}>New</option>
+                    <option value="used"{% if filters.condition == 'used' %} selected{% endif %}>Used</option>
+                </select>
+            </label>
+            <label class="ud-filter">
+                <span class="ud-filter__label">Sort</span>
+                <select name="sort">
+                    <option value="newest"{% if filters.sort == 'newest' %} selected{% endif %}>Newest first</option>
+                    <option value="oldest"{% if filters.sort == 'oldest' %} selected{% endif %}>Oldest first</option>
+                    <option value="name_asc"{% if filters.sort == 'name_asc' %} selected{% endif %}>Name A–Z</option>
+                    <option value="name_desc"{% if filters.sort == 'name_desc' %} selected{% endif %}>Name Z–A</option>
+                    <option value="price_asc"{% if filters.sort == 'price_asc' %} selected{% endif %}>Price low → high</option>
+                    <option value="price_desc"{% if filters.sort == 'price_desc' %} selected{% endif %}>Price high → low</option>
+                    <option value="stock_asc"{% if filters.sort == 'stock_asc' %} selected{% endif %}>Stock low → high</option>
+                    <option value="stock_desc"{% if filters.sort == 'stock_desc' %} selected{% endif %}>Stock high → low</option>
+                    <option value="updated"{% if filters.sort == 'updated' %} selected{% endif %}>Recently updated</option>
+                </select>
+            </label>
+        </div>
+        <div class="ud-products-toolbar__actions">
+            <button type="submit" class="ud-btn ud-btn--primary"><i class="fa fa-filter" aria-hidden="true"></i> Apply</button>
+            {% if active_filters %}
+            <a href="{% url 'dashboard_products' %}" class="ud-btn ud-btn--ghost">Reset</a>
+            {% endif %}
+        </div>
     </form>
 
-    <form id="bulk-form" method="POST" action="{% url 'dashboard_product_bulk_delete' %}">
+    <form id="ud-products-bulk-form" method="post" action="{% url 'dashboard_product_bulk_delete' %}" class="ud-products-bulk-form">
         {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
 
-        <div id="bulk-action-bar" style="display:none; align-items:center; gap:12px; padding:10px 16px; background:#fff3cd; border:1px solid #ffeeba; border-radius:6px; margin-bottom:15px;">
-            <span id="selected-count" style="font-size:13px; font-weight:600; color:#856404;"></span>
-            <button type="submit" class="btn btn-primary" style="background:#dc3545; padding:6px 16px; font-size:12px; margin-left:auto;" onclick="return confirm('Move selected products to trash?');">
-                <i class="fa fa-trash"></i> Move to Trash
-            </button>
+        <div class="ud-bulk-bar" id="ud-products-bulk-bar" hidden>
+            <span class="ud-bulk-bar__count" id="ud-products-selected-count">0 selected</span>
+            <div class="ud-bulk-bar__actions">
+                <button type="submit" class="ud-btn ud-btn--ghost" formaction="{% url 'dashboard_product_bulk_status' %}" name="bulk_action" value="publish">
+                    <i class="fa fa-check" aria-hidden="true"></i> Publish
+                </button>
+                <button type="submit" class="ud-btn ud-btn--ghost" formaction="{% url 'dashboard_product_bulk_status' %}" name="bulk_action" value="unpublish">
+                    <i class="fa fa-file-o" aria-hidden="true"></i> Unpublish
+                </button>
+                <button type="submit" class="ud-btn ud-btn--danger" formaction="{% url 'dashboard_product_bulk_delete' %}" data-ud-confirm="Move selected products to trash?">
+                    <i class="fa fa-trash-o" aria-hidden="true"></i> Move to Trash
+                </button>
+            </div>
         </div>
 
         {% if products %}
-        <table class="cart-table">
-            <thead>
-                <tr>
-                    <th><input type="checkbox" id="select-all"></th>
-                    <th>Image</th>
-                    <th>Name</th>
-                    <th>SKU</th>
-                    <th>Category</th>
-                    <th>Price</th>
-                    <th>Cost Price</th>
-                    <th>Profit</th>
-                    <th>Stock</th>
-                    <th>Available</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for product in products %}
-                <tr>
-                    <td><input type="checkbox" name="product_ids" value="{{ product.id }}" class="product-checkbox"></td>
-                    <td class="product-thumb">
-                        {% if product.image %}
-                        <img src="{{ product.image.url }}" alt="{{ product.name }}">
-                        {% else %}
-                        <img src="/static/img/placeholder_60x60.png" alt="">
-                        {% endif %}
-                    </td>
-                    <td>{{ product.name|truncatechars:50 }}</td>
-                    <td style="font-size:11px;color:#888;">{{ product.sku|default:'—' }}</td>
-                    <td>{{ product.category.name|default:'—' }}</td>
-                    <td>৳{{ product.price }}</td>
-                    <td>{% if product.cost_price is not None %}৳{{ product.cost_price }}{% else %}<span style="color:#999;">—</span>{% endif %}</td>
-                    <td>
-                        {% if product.profit is not None %}
-                        <span style="color:{% if product.profit >= 0 %}#28a745{% else %}#dc3545{% endif %};font-weight:600;">৳{{ product.profit }}</span>
-                        {% else %}
-                        <span style="color:#999;">—</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ product.stock }}</td>
-                    <td>{{ product.available|yesno:"Yes,No" }}</td>
-                    <td>
-                        {% if product.is_published %}
-                        <span class="pub-badge pub-badge-live">Published</span>
-                        {% else %}
-                        <span class="pub-badge pub-badge-draft">Draft</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <a href="{% url 'dashboard_product_edit' product.id %}" class="btn btn-outline" style="padding:4px 12px; font-size:11px;">Edit</a>
-                        <button type="submit" formmethod="post" formaction="{% url 'dashboard_product_toggle_publish' product.id %}" class="btn btn-outline" style="padding:4px 12px; font-size:11px; color:{% if product.is_published %}#b5730a{% else %}#1a8a4a{% endif %}; border-color:currentColor;" onclick="return confirm('{% if product.is_published %}Unpublish this product and save as draft?{% else %}Publish this product now?{% endif %}');">{% if product.is_published %}Unpublish{% else %}Publish{% endif %}</button>
-                        <a href="{% url 'dashboard_product_duplicate' product.id %}" class="btn btn-outline" style="padding:4px 12px; font-size:11px; color:#28a745; border-color:#28a745;">Duplicate</a>
-                        <a href="{% url 'dashboard_product_delete' product.id %}" class="btn btn-primary" style="padding:4px 12px; font-size:11px; background:#999; border-color:#999;">Delete</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="ud-products-table-wrap">
+            <table class="ud-products-table">
+                <caption class="ud-sr-only">List of your products</caption>
+                <thead>
+                    <tr>
+                        <th class="ud-col-check">
+                            <input type="checkbox" id="ud-products-select-all" aria-label="Select all products on this page">
+                        </th>
+                        <th class="ud-col-product">Product</th>
+                        <th class="ud-col-sku">SKU</th>
+                        <th class="ud-col-category">Category</th>
+                        <th class="ud-col-price">Price</th>
+                        <th class="ud-col-cost">Cost</th>
+                        <th class="ud-col-profit">Profit</th>
+                        <th class="ud-col-stock">Stock</th>
+                        <th class="ud-col-status">Status</th>
+                        <th class="ud-col-updated">Updated</th>
+                        <th class="ud-col-actions"><span class="ud-sr-only">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td class="ud-col-check" data-label="Select">
+                            <input type="checkbox" name="product_ids" value="{{ product.id }}" class="ud-product-checkbox" aria-label="Select {{ product.name }}">
+                        </td>
+                        <td class="ud-col-product" data-label="Product">
+                            <div class="ud-product-cell">
+                                <span class="ud-product-thumb">
+                                    {% if product.image %}
+                                    <img class="ud-product-thumb-image" src="{{ product.image.url }}" alt="{{ product.name }}" width="56" height="56" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='{% static 'img/placeholder_80x80.png' %}';">
+                                    {% else %}
+                                    <img class="ud-product-thumb-image" src="{% static 'img/placeholder_80x80.png' %}" alt="" width="56" height="56" loading="lazy" decoding="async">
+                                    {% endif %}
+                                </span>
+                                <div class="ud-product-meta">
+                                    <a class="ud-product-title" href="{% url 'dashboard_product_edit' product.id %}" title="{{ product.name }}">{{ product.name|truncatechars:60 }}</a>
+                                    <div class="ud-product-tags">
+                                        {% if product.condition == 'used' %}<span class="ud-tag ud-tag--used">Used</span>{% endif %}
+                                        {% if not product.available %}<span class="ud-tag ud-tag--muted">Unavailable</span>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="ud-col-sku" data-label="SKU"><span class="ud-mono">{{ product.sku|default:'—' }}</span></td>
+                        <td class="ud-col-category" data-label="Category">{{ product.category.name|default:'—' }}</td>
+                        <td class="ud-col-price" data-label="Price"><span class="ud-price">৳{{ product.price }}</span></td>
+                        <td class="ud-col-cost" data-label="Cost">
+                            {% if product.cost_price is not None %}<span class="ud-price">৳{{ product.cost_price }}</span>{% else %}<span class="ud-muted">—</span>{% endif %}
+                        </td>
+                        <td class="ud-col-profit" data-label="Profit">
+                            {% if product.profit is not None %}
+                            <span class="ud-profit{% if product.profit < 0 %} ud-profit--negative{% endif %}">৳{{ product.profit }}</span>
+                            {% else %}
+                            <span class="ud-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="ud-col-stock" data-label="Stock">
+                            {% if product.stock <= 0 %}
+                            <span class="ud-stock ud-stock--out">Out of stock</span>
+                            {% elif product.stock <= product.low_stock_threshold %}
+                            <span class="ud-stock ud-stock--low">{{ product.stock }} left</span>
+                            {% else %}
+                            <span class="ud-stock ud-stock--in">{{ product.stock }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="ud-col-status" data-label="Status">
+                            {% if product.is_published %}
+                            <span class="ud-status-badge ud-status-published">Published</span>
+                            {% else %}
+                            <span class="ud-status-badge ud-status-draft">Draft</span>
+                            {% endif %}
+                        </td>
+                        <td class="ud-col-updated" data-label="Updated"><span class="ud-date">{{ product.updated|date:"d M Y" }}</span></td>
+                        <td class="ud-col-actions" data-label="Actions">
+                            <div class="ud-product-actions">
+                                <button type="button" class="ud-actions-trigger" aria-label="Product actions" aria-haspopup="true" aria-expanded="false" aria-controls="ud-actions-{{ product.id }}">
+                                    <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+                                </button>
+                                <div class="ud-actions-menu" id="ud-actions-{{ product.id }}" role="menu" hidden>
+                                    <a role="menuitem" href="{% url 'dashboard_product_edit' product.id %}"><i class="fa fa-pencil" aria-hidden="true"></i> Edit</a>
+                                    <button type="submit" role="menuitem" formmethod="post" formaction="{% url 'dashboard_product_toggle_publish' product.id %}" formnovalidate data-ud-confirm="{% if product.is_published %}Unpublish this product and save as draft?{% else %}Publish this product now?{% endif %}">
+                                        {% if product.is_published %}<i class="fa fa-file-o" aria-hidden="true"></i> Unpublish{% else %}<i class="fa fa-check" aria-hidden="true"></i> Publish{% endif %}
+                                    </button>
+                                    <a role="menuitem" href="{% url 'dashboard_product_duplicate' product.id %}"><i class="fa fa-copy" aria-hidden="true"></i> Duplicate</a>
+                                    <a role="menuitem" class="ud-actions-menu__danger" href="{% url 'dashboard_product_delete' product.id %}"><i class="fa fa-trash-o" aria-hidden="true"></i> Move to Trash</a>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% else %}
-        <div style="text-align:center; padding:60px 0;">
-            <i class="fa fa-cube" style="font-size:48px; color:#ddd; margin-bottom:20px;"></i>
-            <h3>No products found.</h3>
-            {% if query %}
-            <p style="color:#888;">No products matching "{{ query }}".</p>
-            <a href="{% url 'dashboard_products' %}" class="btn btn-outline" style="margin-top:10px;">Clear Search</a>
+        <div class="ud-products-empty">
+            <i class="fa {% if active_filters %}fa-search{% else %}fa-cube{% endif %}" aria-hidden="true"></i>
+            {% if active_filters %}
+            <h3>No products match your filters</h3>
+            <p>Try changing the filters or clearing them to see more products.</p>
+            <a href="{% url 'dashboard_products' %}" class="ud-btn ud-btn--ghost">Clear filters</a>
             {% else %}
-            <a href="{% url 'dashboard_product_create' %}" class="btn btn-primary" style="margin-top:15px;">Add Your First Product</a>
+            <h3>No products yet</h3>
+            <p>Add your first product to start selling on your store.</p>
+            <a href="{% url 'dashboard_product_create' %}" class="ud-btn ud-btn--primary"><i class="fa fa-plus" aria-hidden="true"></i> Add Your First Product</a>
             {% endif %}
         </div>
         {% endif %}
     </form>
 
     {% if page_obj and page_obj.paginator.num_pages > 1 %}
-    <div style="display:flex; justify-content:center; align-items:center; gap:6px; margin-top:20px; flex-wrap:wrap;">
-        {% if page_obj.has_previous %}
-        <a href="?page=1{% if query %}&q={{ query }}{% endif %}" class="btn btn-outline" style="padding:6px 12px; font-size:12px;">&laquo; First</a>
-        <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}" class="btn btn-outline" style="padding:6px 12px; font-size:12px;">&lsaquo; Prev</a>
-        {% endif %}
-
-        {% for num in page_obj.paginator.page_range %}
-            {% if num == page_obj.number %}
-            <span style="padding:6px 14px; background:#e74847; color:#fff; border-radius:4px; font-size:12px; font-weight:600;">{{ num }}</span>
-            {% elif num > page_obj.number|add:'-5' and num < page_obj.number|add:'5' %}
-            <a href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}" style="padding:6px 14px; border:1px solid #ddd; border-radius:4px; font-size:12px; color:#333; text-decoration:none;">{{ num }}</a>
+    <div class="ud-products-pagination">
+        <div class="ud-products-pagination__pages">
+            {% if page_obj.has_previous %}
+            <a href="?{% if query_string %}{{ query_string }}&amp;{% endif %}page=1" aria-label="First page">&laquo;</a>
+            <a href="?{% if query_string %}{{ query_string }}&amp;{% endif %}page={{ page_obj.previous_page_number }}" aria-label="Previous page">&lsaquo;</a>
             {% endif %}
-        {% endfor %}
-
-        {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}" class="btn btn-outline" style="padding:6px 12px; font-size:12px;">Next &rsaquo;</a>
-        <a href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}" class="btn btn-outline" style="padding:6px 12px; font-size:12px;">Last &raquo;</a>
-        {% endif %}
-    </div>
-    <div style="text-align:center; color:#888; font-size:12px; margin-top:8px;">
-        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} total products)
+            {% for num in page_obj.paginator.page_range %}
+                {% if num == page_obj.number %}
+                <span class="is-current" aria-current="page">{{ num }}</span>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <a href="?{% if query_string %}{{ query_string }}&amp;{% endif %}page={{ num }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?{% if query_string %}{{ query_string }}&amp;{% endif %}page={{ page_obj.next_page_number }}" aria-label="Next page">&rsaquo;</a>
+            <a href="?{% if query_string %}{{ query_string }}&amp;{% endif %}page={{ page_obj.paginator.num_pages }}" aria-label="Last page">&raquo;</a>
+            {% endif %}
+        </div>
+        <div class="ud-products-pagination__meta">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} &middot; showing {{ page_obj.object_list|length }} of {{ filtered_count }} product{{ filtered_count|pluralize }}
+        </div>
     </div>
     {% endif %}
 </div>
