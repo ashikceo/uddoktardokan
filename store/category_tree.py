@@ -7,7 +7,7 @@ from django.dispatch import receiver
 
 from store.models import Category, Product
 
-CACHE_KEY = 'category_tree_v2'
+CACHE_KEY = 'category_tree_v3'
 CACHE_TTL = 600
 
 
@@ -20,6 +20,8 @@ def build():
     cats = Category.objects.filter(is_active=True).order_by('sort_order', 'name')
     nested = {c.id: {
         'id': c.id, 'name': c.name, 'slug': c.slug, 'parent_id': c.parent_id,
+        'icon': c.icon or '',
+        'image_url': c.image.url if c.image else '',
         'path': [], 'url': '', 'product_count': 0, 'children': [],
     } for c in cats}
 

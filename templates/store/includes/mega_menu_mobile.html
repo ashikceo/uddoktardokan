@@ -1,0 +1,22 @@
+{% load category_icons %}
+{# Mobile drill-down category drawer. Rendered once per page. #}
+{{ category_tree|json_script:"udCategoryTreeData" }}
+<div class="ud-cat-drawer" id="udCatDrawer" aria-hidden="true">
+  <div class="ud-cat-drawer__overlay" data-udm-close></div>
+  <aside class="ud-cat-drawer__panel" role="dialog" aria-modal="true" aria-label="Categories">
+    <header class="ud-cat-drawer__header">
+      <button type="button" class="ud-cat-drawer__back" data-udm-back aria-label="Back" hidden>
+        <i class="fa fa-angle-left"></i>
+      </button>
+      <span class="ud-cat-drawer__title" data-udm-title>Categories</span>
+      <button type="button" class="ud-cat-drawer__close" data-udm-close aria-label="Close categories">
+        <i class="fa fa-times"></i>
+      </button>
+    </header>
+    <div class="ud-cat-drawer__search">
+      <i class="fa fa-search"></i>
+      <input type="text" data-udm-search placeholder="Search categories" aria-label="Search categories" autocomplete="off">
+    </div>
+    <div class="ud-cat-drawer__body" data-udm-body></div>
+  </aside>
+</div>

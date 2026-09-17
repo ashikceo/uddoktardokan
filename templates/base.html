@@ -65,6 +65,7 @@
 <link rel="stylesheet" href="{% static 'fonten_app/css/style.css' %}">
 <link rel="stylesheet" href="{% static 'fonten_app/css/responsive.css' %}">
 <link rel="stylesheet" href="{% static 'fonten_app/css/mobile.css' %}">
+<link rel="stylesheet" href="{% static 'css/mega-menu.css' %}">
 <style>
 @media print {
   header, .mobile-header, nav, .mobile-bottom-nav,
@@ -250,65 +251,7 @@
               <ul>
                 {% for item in nav_items %}
                 {% if item.kind == 'categories' and item.show_desktop %}
-                <li class="megamenu cat-mega-li">
-                  <a href="{{ item.get_url }}" class="cat-mega-trigger">
-                    <i class="fa fa-th-large" style="color:#ffd54f;"></i> {{ item.title }} <i class="fa fa-angle-down" style="margin-left:4px;font-size:12px;"></i>
-                  </a>
-                  <div class="cat-mega-panel">
-                    <ul class="cat-parents">
-                      {% for root in category_tree %}
-                        {% if root.children %}
-                        <li class="cat-parent">
-                          <a class="cat-parent-link" href="{{ root.url }}">
-                            <span>{{ root.name }}</span>
-                            <i class="fa fa-angle-right cat-parent-arrow"></i>
-                          </a>
-                          <div class="cat-child">
-                            <div class="cat-child-cols">
-                              <div class="cat-child-col">
-                                {% for sub in root.children|slice:":4" %}
-                                <div class="cat-sub-block">
-                                  <a class="cat-sub-title" href="{{ sub.url }}">{{ sub.name }}</a>
-                                  <ul>
-                                    {% for gc in sub.children|slice:":5" %}
-                                    <li><a class="cat-gc-link" href="{{ gc.url }}">{{ gc.name }}</a></li>
-                                    {% endfor %}
-                                  </ul>
-                                </div>
-                                {% endfor %}
-                              </div>
-                              <div class="cat-child-col">
-                                {% for sub in root.children|slice:"4:8" %}
-                                <div class="cat-sub-block">
-                                  <a class="cat-sub-title" href="{{ sub.url }}">{{ sub.name }}</a>
-                                  <ul>
-                                    {% for gc in sub.children|slice:":5" %}
-                                    <li><a class="cat-gc-link" href="{{ gc.url }}">{{ gc.name }}</a></li>
-                                    {% endfor %}
-                                  </ul>
-                                </div>
-                                {% endfor %}
-                              </div>
-                              <div class="cat-child-col">
-                                {% for sub in root.children|slice:"8:12" %}
-                                <div class="cat-sub-block">
-                                  <a class="cat-sub-title" href="{{ sub.url }}">{{ sub.name }}</a>
-                                  <ul>
-                                    {% for gc in sub.children|slice:":5" %}
-                                    <li><a class="cat-gc-link" href="{{ gc.url }}">{{ gc.name }}</a></li>
-                                    {% endfor %}
-                                  </ul>
-                                </div>
-                                {% endfor %}
-                              </div>
-                            </div>
-                          </div>
-                        </li>
-                        {% endif %}
-                      {% endfor %}
-                    </ul>
-                  </div>
-                </li>
+                {% include 'store/includes/mega_menu.html' with menu_item=item %}
                 {% endif %}
                 {% if item.kind == 'link' and item.show_desktop %}
                 {% if item.login_required and not user.is_authenticated %}
@@ -340,91 +283,6 @@
   </div>
   <!-- End Menu Area -->
 
-  <style>
-  .cat-mega-li { position: relative; }
-  .cat-mega-li .cat-mega-panel {
-    position: absolute; top: 100%; left: 0; z-index: 1300;
-    background: #fff; border: 1px solid #eee; border-top: 2px solid #cb3231;
-    box-shadow: 0 8px 24px rgba(0,0,0,.15);
-    width: 960px; max-width: calc(100vw - 24px);
-    margin: 0; min-height: 430px;
-    display: flex;
-    opacity: 0; visibility: hidden;
-    pointer-events: none;
-    transition: opacity .18s ease .02s, visibility 0s linear .35s;
-  }
-  .cat-mega-panel.cat-mega-open {
-    opacity: 1; visibility: visible;
-    pointer-events: auto;
-    transition: opacity .18s ease 0s, visibility 0s linear 0s;
-  }
-  .cat-mega-li .cat-parents {
-    position: static !important;
-    top: auto !important; left: auto !important;
-    width: 250px; flex: 0 0 250px; margin: 0; padding: 8px 0;
-    list-style: none; border-right: 1px solid #eee;
-    max-height: 520px; overflow-y: auto;
-    box-shadow: none !important; opacity: 1 !important;
-    visibility: inherit !important; z-index: auto !important;
-    background: #fff;
-  }
-  .cat-mega-li .cat-parent { position: static; list-style: none; background: none; display: block; }
-  .cat-mega-li .cat-parent > .cat-parent-link {
-    display: flex; align-items: center; gap: 8px; padding: 11px 18px;
-    color: #333; text-decoration: none; font-size: 14px; transition: all .2s ease;
-  }
-  .cat-mega-li .cat-parent > .cat-parent-link:hover { color: #cb3231; background: #fff3ed; }
-  .cat-mega-li .cat-parent-arrow { margin-left: auto; color: #999; font-size: 14px; }
-  .cat-mega-li .cat-child {
-    position: absolute; top: 0; left: 250px; bottom: 0; right: 0;
-    min-height: 430px; background: #fff;
-    overflow: auto; border-left: 1px solid #f5f5f5;
-    opacity: 0; visibility: hidden;
-    transition: opacity .15s ease 0s, visibility 0s linear .30s;
-  }
-  .cat-mega-li .cat-parent:hover > .cat-child {
-    opacity: 1; visibility: visible;
-    transition: opacity .15s ease 0s, visibility 0s linear 0s;
-  }
-  .cat-mega-li .cat-child-cols {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 24px; padding: 28px 30px;
-  }
-  .cat-mega-li .cat-child-col { min-width: 0; }
-  .cat-mega-li .cat-sub-block { min-width: 0; margin-bottom: 20px; }
-  .cat-mega-li .cat-sub-title {
-    display: block; color: #222; font-size: 15px; font-weight: 700;
-    text-decoration: none; margin-bottom: 10px; padding-bottom: 8px;
-    border-bottom: 1px solid #eee;
-  }
-  .cat-mega-li .cat-sub-title:hover { color: #cb3231; }
-  .cat-mega-li .cat-sub-block ul { list-style: none; margin: 0; padding: 0; }
-  .cat-mega-li .cat-gc-link {
-    display: block; color: #777; text-decoration: none; font-size: 13px;
-    padding: 5px 0; transition: all .15s ease;
-  }
-  .cat-mega-li .cat-gc-link:hover { color: #cb3231; padding-left: 4px; }
-  @media (max-width: 991px) {
-    .cat-mega-li .cat-mega-panel { display: none !important; }
-  }
-  /* Mobile category accordion */
-  .cat-accordion-m .cat-acc-root {
-    display: flex; align-items: center; justify-content: space-between;
-    background: #cb3231; color: #fff; font-weight: 700; padding: 8px 12px; text-decoration: none;
-  }
-  .cat-accordion-m .cat-acc-root a { color: inherit; text-decoration: none; }
-  .cat-accordion-m .cat-acc-list { list-style: none; margin: 0; padding: 0; }
-  .cat-accordion-m .cat-acc-list > li { border-bottom: 1px solid #f0f0f0; }
-  .cat-accordion-m .cat-acc-sub { display: none; list-style: none; margin: 0; padding-left: 12px; }
-  .cat-accordion-m .cat-acc-t {
-    float: right; border: 1px solid #ddd; background: #fafafa; border-radius: 3px;
-    width: 22px; height: 22px; line-height: 20px; text-align: center; font-size: 13px;
-    color: #666; cursor: pointer; padding: 0; margin-top: 4px;
-  }
-  .cat-accordion-m ul li a { text-decoration: none; color: #333; }
-  .cat-accordion-m .cat-acc-count { color: #999; font-size: 11px; }
-  </style>
-
   <!-- Start Mobile Menu -->
   <div class="mobile-menu hidden-sm hidden-md hidden-lg">
     <nav>
@@ -433,14 +291,6 @@
       <ul>
         {% for item in nav_items %}
         {% if item.kind == 'categories' and item.show_mobile %}
-        <li class="cat-accordion-m">
-          <span class="cat-acc-root"><a href="{{ item.get_url }}"><i class="fa fa-th-large" style="margin-right:5px;"></i> {{ item.title }}</a></span>
-          <ul class="cat-acc-list">
-            {% for cat in category_tree %}
-            {% include 'store/category_accordion_mobile.html' with cat=cat %}
-            {% endfor %}
-          </ul>
-        </li>
         {% elif item.show_mobile %}
         {% if item.kind == 'account' %}
         {% if not user.is_authenticated %}
@@ -462,6 +312,8 @@
     </nav>
   </div>
   <!-- End Mobile Menu -->
+
+  {% include 'store/includes/mega_menu_mobile.html' %}
 
   <!-- Login Modal -->
   <div class="modal fade" id="login-modal" tabindex="-1" role="dialog" aria-hidden="true">
@@ -618,7 +470,7 @@
   <!-- Mobile Bottom Navigation (shown only < 768px) -->
   <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
     <a href="{% url 'home' %}" class="mbn-item" data-mbn="home"><i class="fa fa-home"></i><span>Home</span></a>
-    <a href="{% url 'shop_grid' %}" class="mbn-item" data-mbn="categories"><i class="fa fa-th-large"></i><span>Categories</span></a>
+    <button type="button" class="mbn-item" data-mbn="categories" id="udMobileCatBtn"><i class="fa fa-th-large"></i><span>Categories</span></button>
     <button type="button" class="mbn-item" id="mbnSearch"><i class="fa fa-search"></i><span>Search</span></button>
     <a href="{% url 'cart' %}" class="mbn-item" data-mbn="cart"><i class="fa fa-shopping-cart"></i><span>Cart</span>{% if cart_items_count %}<span class="mbn-badge">{{ cart_items_count }}</span>{% endif %}</a>
     <a href="{% if user.is_authenticated %}{% url 'dashboard' %}{% else %}{% url 'login' %}{% endif %}" class="mbn-item" data-mbn="account"><i class="fa fa-user"></i><span>{% if user.is_authenticated %}Account{% else %}Login{% endif %}</span></a>
@@ -711,66 +563,7 @@
     }
   });
 </script>
-<script>
-  // Categories mega-menu: hover-only on desktop, click/tap toggle on touch.
-  (function () {
-    var li = document.querySelector('.cat-mega-li');
-    if (!li) return;
-    var trig = li.querySelector('.cat-mega-trigger');
-    var panel = li.querySelector('.cat-mega-panel');
-    if (!trig || !panel) return;
-
-    var timer = null;
-    function open() { clearTimeout(timer); panel.classList.add('cat-mega-open'); }
-    function closeSoon() {
-      clearTimeout(timer);
-      timer = setTimeout(function () { panel.classList.remove('cat-mega-open'); }, 120);
-    }
-
-    var canHover = window.matchMedia && window.matchMedia('(hover: hover)').matches;
-    if (canHover) {
-      trig.addEventListener('mouseenter', open);
-      trig.addEventListener('mouseleave', closeSoon);
-      panel.addEventListener('mouseenter', open);
-      panel.addEventListener('mouseleave', closeSoon);
-    } else {
-      trig.addEventListener('click', function (e) {
-        e.preventDefault();
-        if (panel.classList.contains('cat-mega-open')) { closeSoon(); } else { open(); }
-      });
-      panel.addEventListener('click', function (e) { e.stopPropagation(); });
-      document.addEventListener('click', function (e) {
-        if (!li.contains(e.target)) { panel.classList.remove('cat-mega-open'); }
-      });
-    }
-  })();
-</script>
-<script>
-  // Mobile category accordion (delegated so it also works on the copy
-  // that meanmenu injects). Runs after everything else so the DOM is ready.
-  document.addEventListener('click', function(e){
-    try {
-      var btn = e.target.closest ? e.target.closest('.cat-acc-t') : null;
-      if (btn) {
-        var sub = btn.nextElementSibling;
-        if (sub && sub.className === 'cat-acc-sub') {
-          var vis = getComputedStyle(sub).display === 'block';
-          sub.style.display = vis ? 'none' : 'block';
-          btn.textContent = vis ? '+' : '-';
-        }
-        return;
-      }
-      var root = e.target.closest ? e.target.closest('.cat-acc-root') : null;
-      if (root && !(e.target.closest && e.target.closest('a'))) {
-        var list = root.nextElementSibling;
-        if (list && list.className === 'cat-acc-list') {
-          var shown = getComputedStyle(list).display === 'block';
-          list.style.display = shown ? 'none' : 'block';
-        }
-      }
-    } catch (err) { /* noop */ }
-  });
-</script>
+<script src="{% static 'js/mega-menu.js' %}"></script>
 <script>
   // Mobile UI: header menu toggle, bottom-nav active state, search focus.
   (function () {

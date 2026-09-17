@@ -1,0 +1,64 @@
+{% load category_icons %}
+{# Desktop CATEGORIES mega menu. Rendered inside the main-menu <li> loop. #}
+<li class="megamenu ud-mega-li">
+  <a href="{{ menu_item.get_url }}"
+     class="ud-mega-trigger"
+     role="button"
+     aria-haspopup="true"
+     aria-expanded="false"
+     aria-controls="udMegaMenu">
+    <i class="fa fa-th-large ud-mega-trigger__grid"></i>
+    <span>{{ menu_item.title }}</span>
+    <i class="fa fa-angle-down ud-mega-trigger__caret"></i>
+  </a>
+
+  <div class="ud-mega" id="udMegaMenu" role="navigation" aria-label="Product categories">
+    <ul class="ud-mega__sidebar">
+      {% for root in category_tree %}
+      <li class="ud-mega__parent{% if not root.children %} ud-mega__parent--leaf{% endif %}"
+          data-udm-index="{{ forloop.counter0 }}"
+          data-udm-has-children="{% if root.children %}1{% else %}0{% endif %}">
+        <a class="ud-mega__parent-link" href="{{ root.url }}">
+          <span class="ud-mega__parent-icon">
+            <i class="{% if root.icon %}{{ root.icon }}{% else %}{{ root.slug|category_icon }}{% endif %}"></i>
+          </span>
+          <span class="ud-mega__parent-name">{{ root.name }}</span>
+          {% if root.children %}<i class="fa fa-angle-right ud-mega__chev"></i>{% endif %}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <div class="ud-mega__content">
+      {% for root in category_tree %}
+      <div class="ud-mega__panel" data-udm-panel="{{ forloop.counter0 }}">
+        <div class="ud-mega__panel-head">
+          <a href="{{ root.url }}">{{ root.name }}</a>
+          {% if root.product_count %}<span class="ud-mega__count">{{ root.product_count }}</span>{% endif %}
+        </div>
+        {% if root.children %}
+        <div class="ud-mega__grid">
+          {% for sub in root.children %}
+          <div class="ud-mega__group">
+            <a class="ud-mega__group-title" href="{{ sub.url }}">{{ sub.name }}</a>
+            {% if sub.children %}
+            <ul class="ud-mega__child-list">
+              {% for gc in sub.children %}
+              <li><a class="ud-mega__child" href="{{ gc.url }}">{{ gc.name }}</a></li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="ud-mega__empty">
+          <i class="fa fa-info-circle"></i> No subcategories available.
+          <a href="{{ root.url }}">Browse {{ root.name }}</a>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</li>
