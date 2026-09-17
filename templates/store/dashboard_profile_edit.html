@@ -1,136 +1,372 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Edit Profile - Uddoktar Dokan{% endblock %}
+{% block title %}Store Editor - {{ partner.name }} | {{ site_name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/store-editor.css' %}?v=3">
+{% endblock %}
 
 {% block content %}
-<div class="container page-content">
-    <div class="breadcrumb">
-        <a href="{% url 'home' %}">Home</a> / <a href="{% url 'dashboard' %}">Dashboard</a> / <span>Edit Profile</span>
+<div class="ud-store-page">
+  <div class="sd-container">
+
+    <div class="sd-page-title">Store Editor</div>
+    <p class="sd-page-sub">Everything customers see about your shop — identity, branding, appearance and links.</p>
+
+    <!-- Hero -->
+    <div class="sd-hero" style="margin-top:14px;">
+      <div class="sd-hero-bg{% if not partner.banner %} sd-hero-default{% endif %}"{% if partner.banner %} style="background-image:url('{{ partner.banner.url }}');"{% endif %}></div>
+      <div class="sd-hero-actions">
+        <a href="{% url 'partner_detail' partner.slug %}" target="_blank" rel="noopener" class="sd-btn sd-btn-sm"><i class="fa fa-external-link"></i> View Store</a>
+        <button type="button" class="sd-btn sd-btn-sm" data-sd-copy="{{ store_public_url }}"><i class="fa fa-link"></i> Copy Link</button>
+      </div>
+      <div class="sd-hero-content">
+        {% if partner.profile_image %}
+        <img class="sd-hero-avatar" src="{{ partner.profile_image.url }}" alt="{{ partner.name }}">
+        {% else %}
+        <img class="sd-hero-avatar" src="/static/img/placeholder_150x150.png" alt="{{ partner.name }}">
+        {% endif %}
+        <div class="sd-hero-text">
+          <h1 class="sd-hero-name">{{ partner.name }}</h1>
+          <p class="sd-hero-sub">
+            {% if partner.formatted_address %}{{ partner.formatted_address }}
+            {% elif partner.phone %} {{ partner.phone }}
+            {% else %}{{ store_public_url }}{% endif %}
+          </p>
+          <div class="sd-hero-badges">
+            {% if partner.is_seller %}<span class="sd-pill" style="background:rgba(255,255,255,0.22);color:#fff;">Seller</span>{% endif %}
+            {% if partner.is_dealer %}<span class="sd-pill" style="background:rgba(255,255,255,0.22);color:#fff;">Dealer</span>{% endif %}
+            {% if partner.is_union_agent %}<span class="sd-pill" style="background:rgba(255,255,255,0.22);color:#fff;">Union Agent</span>{% endif %}
+            <span class="sd-pill" style="background:{% if partner.show_products %}rgba(26,158,80,0.85);color:#fff{% else %}rgba(220,53,69,0.85);color:#fff{% endif %};">
+              Store {% if partner.show_products %}Public{% else %}Hidden{% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="page-header"><h1>Edit Profile</h1></div>
-    <div class="row">
-        <div class="col-4">
-            <div style="border:1px solid #eee; padding:30px; text-align:center;">
-                {% if partner.profile_image %}
-                <img src="{{ partner.profile_image.url }}" alt="{{ partner.name }}" style="width:150px; height:150px; border-radius:50%; object-fit:cover; margin-bottom:15px;">
-                {% else %}
-                <img src="/static/img/placeholder_150x150.png" alt="{{ partner.name }}" style="width:150px; height:150px; border-radius:50%; object-fit:cover; margin-bottom:15px;">
-                {% endif %}
-                <h3>{{ partner.name }}</h3>
-                {% if partner.is_seller %}<span class="badge" style="background:#28a745; color:#fff; padding:2px 10px; font-size:11px; display:inline-block; margin-top:5px;">Seller</span>{% endif %}
-                {% if partner.is_dealer %}<span class="badge" style="background:#007bff; color:#fff; padding:2px 10px; font-size:11px; display:inline-block; margin-top:5px;">Dealer</span>{% endif %}
+
+    <div class="sd-layout">
+
+      <!-- Sidebar -->
+      <aside class="sd-sidebar">
+        <div class="sd-side-card">
+          <p class="sd-nav-title">Jump to section</p>
+          <nav class="sd-nav" aria-label="Store editor sections">
+            <a href="#sd-general" data-sd-scroll="#sd-general"><i class="fa fa-info-circle"></i> General Info</a>
+            <a href="#sd-branding" data-sd-scroll="#sd-branding"><i class="fa fa-image"></i> Branding &amp; Media</a>
+            <a href="#sd-appearance" data-sd-scroll="#sd-appearance"><i class="fa fa-paint-brush"></i> Appearance</a>
+            <a href="#sd-banners" data-sd-scroll="#sd-banners"><i class="fa fa-th-large"></i> Extra Banners</a>
+            <a href="#sd-status" data-sd-scroll="#sd-status"><i class="fa fa-eye"></i> Status &amp; Shortcuts</a>
+          </nav>
+        </div>
+
+        <div class="sd-side-card">
+          <p class="sd-nav-title">Store status</p>
+          <div class="sd-status-row">
+            <span class="sd-status-label">Products shown</span>
+            <span class="sd-pill {% if partner.show_products %}sd-pill-on{% else %}sd-pill-off{% endif %}">{% if partner.show_products %}ON{% else %}OFF{% endif %}</span>
+          </div>
+          <div class="sd-status-row">
+            <span class="sd-status-label">Slider</span>
+            <span class="sd-pill {% if partner.show_slider %}sd-pill-on{% else %}sd-pill-off{% endif %}">{% if partner.show_slider %}ON{% else %}OFF{% endif %}</span>
+          </div>
+          <div class="sd-status-row">
+            <span class="sd-status-label">Shop type</span>
+            <span>{{ partner.get_shop_style_display }}</span>
+          </div>
+          <a class="sd-side-link" href="{% url 'dashboard' %}"><i class="fa fa-arrow-left"></i> Back to dashboard</a>
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <div class="sd-main">
+
+        <form method="POST" enctype="multipart/form-data" id="sdStoreForm">
+          {% csrf_token %}
+
+          <!-- General Info -->
+          <section class="sd-card" id="sd-general">
+            <div class="sd-card-head">
+              <span class="sd-card-icon"><i class="fa fa-info-circle"></i></span>
+              <div>
+                <h2 class="sd-card-title">General Info</h2>
+                <p class="sd-card-sub">Basic details about your store.</p>
+              </div>
             </div>
-        </div>
-        <div class="col-8">
-            <form method="POST" enctype="multipart/form-data" style="border:1px solid #eee; padding:30px;">
-                {% csrf_token %}
-                <div class="form-group">
-                    <label>Name</label>
-                    <input type="text" name="name" class="form-control" value="{{ partner.name }}" required>
+            <div class="sd-form-grid">
+              <div class="sd-field">
+                <label for="sdName">Store name *</label>
+                <input type="text" id="sdName" name="name" value="{{ partner.name }}" required>
+                <p class="sd-hint">This is shown on your storefront and in search results.</p>
+              </div>
+              <div class="sd-field">
+                <label for="sdPhone">Phone</label>
+                <input type="text" id="sdPhone" name="phone" value="{{ partner.phone }}">
+                <p class="sd-hint">Customers use this to reach you.</p>
+              </div>
+              <div class="sd-field sd-span-2">
+                <label for="sdDescription">Description</label>
+                <textarea id="sdDescription" name="description" maxlength="2000">{{ partner.description }}</textarea>
+                <span class="sd-counter" id="sdDescriptionCounter"></span>
+              </div>
+              <div class="sd-field sd-span-2">
+                <label>Store address (managed by admin)</label>
+                <div class="sd-static">{{ partner.formatted_address }}<small>To change your address or upazila details, contact the site admin.</small></div>
+              </div>
+              <div class="sd-field sd-span-2">
+                <label>Voter ID card (verified by admin)</label>
+                {% if partner.voter_id %}
+                <div class="sd-static">
+                  <img src="{{ partner.voter_id.url }}" alt="Voter ID" style="max-width:180px; max-height:130px; border-radius:8px; display:block;">
+                  <small style="margin-top:6px;">Uploaded — you cannot change this yourself.</small>
                 </div>
-                <div class="form-group">
-                    <label>Phone</label>
-                    <input type="text" name="phone" class="form-control" value="{{ partner.phone }}">
-                </div>
-                <div class="form-group">
-                    <label>Address</label>
-                    <p style="padding:8px 14px; background:#f5f5f5; border:1px solid #eee; border-radius:6px; color:#555; margin:0;">{{ partner.formatted_address }}</p>
-                    <p style="color:#999; font-size:11px; margin-top:4px;">Address can only be updated by site admin.</p>
-                </div>
-                <div class="form-group">
-                    <label>Description</label>
-                    <textarea name="description" class="form-control">{{ partner.description }}</textarea>
-                </div>
-                <div class="form-group">
-                    <label>Store Theme</label>
-                    <select name="theme" class="form-control">
-                        <option value="" {% if not partner.theme %}selected{% endif %}>Use Site Default</option>
-                        {% for key, label in THEME_CHOICES %}
-                        <option value="{{ key }}" {% if partner.theme == key %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                    <p style="color:#888; font-size:11px; margin-top:5px;">Choose a color theme for your store. Select "Use Site Default" to inherit the site-wide theme.</p>
-                </div>
-                <div class="form-group">
-                    <label>Shop Style</label>
-                    <select name="shop_style" class="form-control">
-                        <option value="general" {% if partner.shop_style == 'general' %}selected{% endif %}>General Shop</option>
-                        <option value="shoe" {% if partner.shop_style == 'shoe' %}selected{% endif %}>Shoe Shop</option>
-                        <option value="medicine" {% if partner.shop_style == 'medicine' %}selected{% endif %}>Medicine Shop</option>
-                    </select>
-                    <p style="color:#888; font-size:11px; margin-top:5px;">Choose your shop type. This affects which options are available when adding products.</p>
-                </div>
-                <div class="form-group">
-                    <label>Voter ID Card</label>
-                    {% if partner.voter_id %}
-                    <div style="padding:8px; background:#f5f5f5; border:1px solid #eee; border-radius:6px; margin-bottom:4px;">
-                        <img src="{{ partner.voter_id.url }}" alt="Voter ID" style="max-width:100%; max-height:150px; border-radius:4px; display:block;">
-                    </div>
-                    {% else %}
-                    <p style="padding:8px 14px; background:#f5f5f5; border:1px solid #eee; border-radius:6px; color:#999; margin:0;">No voter ID uploaded yet.</p>
-                    {% endif %}
-                    <p style="color:#999; font-size:11px; margin-top:4px;">Voter ID can only be updated by site admin.</p>
-                </div>
-                <div class="form-group">
-                    <label>Store Logo</label>
-                    <input type="file" name="logo" class="form-control" accept="image/*">
-                    {% if partner.logo %}
-                    <div style="margin-top:8px; display:flex; align-items:center; gap:8px;">
-                        <img src="{{ partner.logo.url }}" alt="Current logo" style="max-height:60px; border-radius:4px;">
-                        <label style="font-size:12px; color:#e74847; cursor:pointer;"><input type="checkbox" name="delete_logo"> Delete logo</label>
-                    </div>
-                    {% endif %}
-                    <p style="color:#888; font-size:11px; margin-top:5px;">This appears as your store's main logo in the header.</p>
-                </div>
-                <div class="form-group">
-                    <label>Profile Photo</label>
-                    <input type="file" name="profile_image" class="form-control" accept="image/*">
-                    {% if partner.profile_image %}
-                    <div style="margin-top:5px;">
-                        <label style="font-size:12px; color:#e74847; cursor:pointer;"><input type="checkbox" name="delete_profile_image"> Delete photo</label>
-                    </div>
-                    {% endif %}
-                    <p style="color:#888; font-size:11px; margin-top:5px;">Leave empty to keep current photo.</p>
-                </div>
-                <div class="form-group">
-                    <label>Store Banner (Hero)</label>
-                    <input type="file" name="banner" class="form-control" accept="image/*">
-                    {% if partner.banner %}
-                    <div style="margin-top:8px; display:flex; align-items:center; gap:8px;">
-                        <img src="{{ partner.banner.url }}" alt="Current banner" style="max-width:100%; max-height:120px; border-radius:4px;">
-                        <label style="font-size:12px; color:#e74847; cursor:pointer;"><input type="checkbox" name="delete_banner"> Delete banner</label>
-                    </div>
-                    {% endif %}
-                    <p style="color:#888; font-size:11px; margin-top:5px;">Recommended size: 1200×300px. Leave empty to keep current.</p>
-                </div>
+                {% else %}
+                <div class="sd-static">No voter ID uploaded yet.<small>Contact the site admin to add one.</small></div>
+                {% endif %}
+              </div>
+            </div>
+          </section>
 
-                <div class="form-group">
-                    <label>Custom Logo Redirect URL</label>
-                    <input type="url" name="custom_redirect_url" class="form-control" value="{{ partner.custom_redirect_url }}" placeholder="https://example.com">
-                    <p style="color:#888; font-size:11px; margin-top:5px;">When someone clicks your store logo, they will be sent to this URL. Leave blank to send them to the homepage.</p>
-                </div>
+          <!-- Branding & Media -->
+          <section class="sd-card" id="sd-branding">
+            <div class="sd-card-head">
+              <span class="sd-card-icon"><i class="fa fa-image"></i></span>
+              <div>
+                <h2 class="sd-card-title">Branding &amp; Media</h2>
+                <p class="sd-card-sub">Your logo, profile photo and hero banner.</p>
+              </div>
+            </div>
 
-                <div class="form-group">
-                    <label>Extra Banners (for bottom section)</label>
-                    <input type="file" name="new_banners" class="form-control" accept="image/*" multiple>
-                    <p style="color:#888; font-size:11px; margin-top:5px;">You can add multiple banners. They appear in a 40:60 layout at the bottom of your store page.</p>
-                    {% if extra_banners %}
-                    <div style="margin-top:10px;">
-                        {% for b in extra_banners %}
-                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding:8px; border:1px solid #eee; border-radius:4px;">
-                            <img src="{{ b.image.url }}" alt="Banner" style="max-height:60px; border-radius:4px;">
-                            <label style="font-size:12px; color:#e74847; cursor:pointer;"><input type="checkbox" name="delete_extra_banner" value="{{ b.id }}"> Delete</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
+            <div class="sd-field">
+              <label for="sdLogo">Store logo</label>
+              <div class="sd-drop" id="sdWrapLogo">
+                <input type="file" id="sdLogo" name="logo" accept="image/*">
+                <div class="sd-drop-body">
+                  <span class="sd-drop-icon"><i class="fa fa-cloud-upload"></i></span>
+                  <span class="sd-drop-text">
+                    <strong>Click or drop a file</strong>
+                    <span>JPG / PNG / WebP · appears in the site header</span>
+                  </span>
                 </div>
+              </div>
+              {% if partner.logo %}
+              <div class="sd-media" id="sdMediaLogo" style="margin-top:10px;">
+                <img id="sdPrevLogo" class="sd-media-preview" src="{{ partner.logo.url }}" alt="Current logo" data-current="{{ partner.logo.url }}">
+                <div class="sd-media-meta">
+                  <strong>Current logo</strong>
+                  <p class="sd-hint">A new file above will replace it.</p>
+                </div>
+                <button type="button" class="sd-remove" data-sd-remove="logo" data-sd-box="delete_logo" data-sd-target="#sdMediaLogo"><i class="fa fa-trash-o"></i> Remove</button>
+              </div>
+              {% endif %}
+              <input type="checkbox" class="sd-hidden-check" id="delete_logo" name="delete_logo">
+            </div>
 
-                <button type="submit" class="btn btn-primary" style="padding:12px 40px;">Save Profile</button>
-                <a href="{% url 'dashboard' %}" class="btn btn-outline" style="margin-left:10px;">Cancel</a>
-            </form>
-        </div>
+            <div class="sd-field" style="margin-top:16px;">
+              <label for="sdProfileImage">Profile photo</label>
+              <div class="sd-drop" id="sdWrapProfile">
+                <input type="file" id="sdProfileImage" name="profile_image" accept="image/*">
+                <div class="sd-drop-body">
+                  <span class="sd-drop-icon"><i class="fa fa-user"></i></span>
+                  <span class="sd-drop-text">
+                    <strong>Click or drop a file</strong>
+                    <span>Square photo, shown beside your store name</span>
+                  </span>
+                </div>
+              </div>
+              {% if partner.profile_image %}
+              <div class="sd-media" id="sdMediaProfile" style="margin-top:10px;">
+                <img id="sdPrevProfile" class="sd-media-preview" src="{{ partner.profile_image.url }}" alt="Current profile photo" data-current="{{ partner.profile_image.url }}">
+                <div class="sd-media-meta">
+                  <strong>Current photo</strong>
+                  <p class="sd-hint">A new file above will replace it.</p>
+                </div>
+                <button type="button" class="sd-remove" data-sd-remove="profile_image" data-sd-box="delete_profile_image" data-sd-target="#sdMediaProfile"><i class="fa fa-trash-o"></i> Remove</button>
+              </div>
+              {% endif %}
+              <input type="checkbox" class="sd-hidden-check" id="delete_profile_image" name="delete_profile_image">
+            </div>
+
+            <div class="sd-field" style="margin-top:16px;">
+              <label for="sdBanner">Store banner (hero)</label>
+              <div class="sd-drop" id="sdWrapBanner">
+                <input type="file" id="sdBanner" name="banner" accept="image/*">
+                <div class="sd-drop-body">
+                  <span class="sd-drop-icon"><i class="fa fa-picture-o"></i></span>
+                  <span class="sd-drop-text">
+                    <strong>Click or drop a file</strong>
+                    <span>Recommended 1200×300px · covers the top of your store</span>
+                  </span>
+                </div>
+              </div>
+              {% if partner.banner %}
+              <div class="sd-media" id="sdMediaBanner" style="margin-top:10px;">
+                <img id="sdPrevBanner" class="sd-media-preview" src="{{ partner.banner.url }}" alt="Current banner" data-current="{{ partner.banner.url }}">
+                <div class="sd-media-meta">
+                  <strong>Current banner</strong>
+                  <p class="sd-hint">A new file above will replace it.</p>
+                </div>
+                <button type="button" class="sd-remove" data-sd-remove="banner" data-sd-box="delete_banner" data-sd-target="#sdMediaBanner"><i class="fa fa-trash-o"></i> Remove</button>
+              </div>
+              {% endif %}
+              <input type="checkbox" class="sd-hidden-check" id="delete_banner" name="delete_banner">
+            </div>
+          </section>
+
+          <!-- Appearance -->
+          <section class="sd-card" id="sd-appearance">
+            <div class="sd-card-head">
+              <span class="sd-card-icon"><i class="fa fa-paint-brush"></i></span>
+              <div>
+                <h2 class="sd-card-title">Appearance</h2>
+                <p class="sd-card-sub">Pick a color theme and shop type.</p>
+              </div>
+            </div>
+
+            <div class="sd-field">
+              <label>Store theme</label>
+              <div class="sd-swatch-grid sd-swatch-4">
+                <div class="sd-swatch">
+                  <input type="radio" id="theme_default" name="theme" value="" {% if not partner.theme %}checked{% endif %}>
+                  <label for="theme_default"><span class="sd-swatch-dot" style="background:linear-gradient(135deg,#8a2be2,#4b0082);"></span> Site Default</label>
+                </div>
+                {% for t in THEME_PRESETS %}
+                <div class="sd-swatch">
+                  <input type="radio" id="theme_{{ t.0 }}" name="theme" value="{{ t.0 }}" {% if partner.theme == t.0 %}checked{% endif %}>
+                  <label for="theme_{{ t.0 }}"><span class="sd-swatch-dot" style="background:{{ t.2 }};"></span> {{ t.1 }}</label>
+                </div>
+                {% endfor %}
+              </div>
+              <p class="sd-hint">"Site Default" inherits the site-wide theme.</p>
+            </div>
+
+            <div class="sd-field" style="margin-top:16px;">
+              <label for="sdShopStyle">Shop style</label>
+              <select id="sdShopStyle" name="shop_style">
+                <option value="general" {% if partner.shop_style == 'general' %}selected{% endif %}>General Shop</option>
+                <option value="shoe" {% if partner.shop_style == 'shoe' %}selected{% endif %}>Shoe Shop</option>
+                <option value="medicine" {% if partner.shop_style == 'medicine' %}selected{% endif %}>Medicine Shop</option>
+              </select>
+              <p class="sd-hint">Controls which options are available when adding products.</p>
+            </div>
+
+            <div class="sd-field" style="margin-top:16px;">
+              <label for="sdRedirectUrl">Custom logo redirect URL</label>
+              <input type="url" id="sdRedirectUrl" name="custom_redirect_url" value="{{ partner.custom_redirect_url }}" placeholder="https://example.com">
+              <p class="sd-hint">When someone clicks your store logo they go to this URL. Leave blank to go to the homepage.</p>
+            </div>
+          </section>
+
+          <!-- Extra Banners -->
+          <section class="sd-card" id="sd-banners">
+            <div class="sd-card-head">
+              <span class="sd-card-icon"><i class="fa fa-th-large"></i></span>
+              <div>
+                <h2 class="sd-card-title">Extra Banners</h2>
+                <p class="sd-card-sub">Shown in the 40:60 bottom section of your store page.</p>
+              </div>
+            </div>
+            <div class="sd-field">
+              <div class="sd-drop" id="sdWrapNewBanners">
+                <input type="file" id="sdNewBanners" name="new_banners" accept="image/*" multiple>
+                <div class="sd-drop-body">
+                  <span class="sd-drop-icon"><i class="fa fa-plus"></i></span>
+                  <span class="sd-drop-text">
+                    <strong>Add one or more banners</strong>
+                    <span>You can select several files at once</span>
+                  </span>
+                </div>
+              </div>
+              <div id="sdNewBannerPreviews"></div>
+            </div>
+            {% if extra_banners %}
+            <div class="sd-banner-list" style="margin-top:14px;">
+              {% for b in extra_banners %}
+              <div class="sd-banner-item">
+                <img src="{{ b.image.url }}" alt="Banner {{ forloop.counter }}">
+                <span style="font-size:12px; color:#6b7280;">Banner {{ forloop.counter }}</span>
+                <button type="button" class="sd-remove" data-sd-banner-remove="dbe_{{ b.id }}"><i class="fa fa-trash-o"></i> Delete</button>
+                <input type="checkbox" class="sd-hidden-check" id="dbe_{{ b.id }}" name="delete_extra_banner" value="{{ b.id }}">
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <p class="sd-hint" style="margin-top:10px;">No extra banners yet — add some above.</p>
+            {% endif %}
+          </section>
+
+          <!-- Status & Shortcuts -->
+          <section class="sd-card" id="sd-status">
+            <div class="sd-card-head">
+              <span class="sd-card-icon"><i class="fa fa-eye"></i></span>
+              <div>
+                <h2 class="sd-card-title">Status &amp; Shortcuts</h2>
+                <p class="sd-card-sub">Control what appears on your public store page.</p>
+              </div>
+            </div>
+            <div class="sd-notice" style="margin-bottom:14px;">
+              <i class="fa fa-exclamation-triangle"></i>
+              <span>Toggles below apply to your public store immediately.</span>
+            </div>
+            <div class="sd-shortcut-grid">
+              <a class="sd-shortcut" href="{% url 'dashboard_toggle_products' %}">
+                <i class="fa {% if partner.show_products %}fa-eye{% else %}fa-eye-slash{% endif %}"></i>
+                Products: {% if partner.show_products %}Visible{% else %}Hidden{% endif %}
+              </a>
+              <a class="sd-shortcut" href="{% url 'dashboard_toggle_all_products_section' %}">
+                <i class="fa fa-th"></i>
+                "All Over" section: {% if partner.show_all_products_section %}ON{% else %}OFF{% endif %}
+              </a>
+              <a class="sd-shortcut" href="{% url 'dashboard_toggle_random_products_section' %}">
+                <i class="fa fa-random"></i>
+                Random products: {% if partner.show_random_products_section %}ON{% else %}OFF{% endif %}
+              </a>
+              <a class="sd-shortcut" href="{% url 'dashboard_toggle_slider' %}">
+                <i class="fa fa-sliders"></i>
+                Slider: {% if partner.show_slider %}ON{% else %}OFF{% endif %}
+              </a>
+              <a class="sd-shortcut sd-shortcut-small" href="{% url 'dashboard_slider_list' %}"><i class="fa fa-cog"></i> Manage slider slides</a>
+              <a class="sd-shortcut sd-shortcut-small" href="{% url 'dashboard_menu_list' %}"><i class="fa fa-bars"></i> Manage store menu</a>
+              <a class="sd-shortcut sd-shortcut-small" href="{% url 'dashboard_side_banners' %}"><i class="fa fa-picture-o"></i> Manage side banners</a>
+              <a class="sd-shortcut sd-shortcut-small" href="{% url 'dashboard_product_create' %}"><i class="fa fa-plus-circle"></i> Add a new product</a>
+            </div>
+          </section>
+
+          <!-- Save bar -->
+          <div class="sd-savebar">
+            <span class="sd-unsaved" id="sdUnsaved"><i class="fa fa-circle" style="font-size:8px;"></i> You have unsaved changes</span>
+            <div class="sd-actions">
+              <a href="{% url 'dashboard' %}" class="sd-btn">Cancel</a>
+              <button type="submit" class="sd-btn sd-btn-primary"><i class="fa fa-check"></i> Save Store</button>
+            </div>
+          </div>
+        </form>
+
+      </div>
     </div>
+  </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/store-editor.js' %}"></script>
+<script>
+  (function () {
+    var copyBtn = document.querySelector('[data-sd-copy]');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', function () {
+        var url = copyBtn.getAttribute('data-sd-copy');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(function () {
+            copyBtn.innerHTML = '<i class="fa fa-check"></i> Copied';
+            setTimeout(function () { copyBtn.innerHTML = '<i class="fa fa-link"></i> Copy Link'; }, 1800);
+          });
+        } else if (window.clipboardData) {
+          window.clipboardData.setData('Text', url);
+        }
+      });
+    }
+  })();
+</script>
 {% endblock %}

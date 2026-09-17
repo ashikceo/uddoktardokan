@@ -1,0 +1,113 @@
+{% extends 'store/account/account_center_base.html' %}
+{% block account_tab_content %}
+<div class="ud-card">
+  <h1 class="ud-page-title">Security</h1>
+  <p class="ud-page-sub">Password, two-factor authentication, sessions and activity.</p>
+</div>
+
+<div class="ud-card">
+  <h2 class="ud-card-title">Change password</h2>
+  <form method="POST" action="{% url 'account_password_change' %}" class="ud-form ud-form-narrow">
+    {% csrf_token %}
+    <div class="ud-field">
+      <label>Current password</label>
+      <input type="password" name="old_password" required autocomplete="current-password">
+    </div>
+    <div class="ud-field">
+      <label>New password</label>
+      <input type="password" name="new_password1" required autocomplete="new-password">
+    </div>
+    <div class="ud-field">
+      <label>Confirm new password</label>
+      <input type="password" name="new_password2" required autocomplete="new-password">
+    </div>
+    <button class="ud-btn ud-btn-primary" type="submit">Update password</button>
+  </form>
+</div>
+
+<div class="ud-card">
+  <h2 class="ud-card-title">Two-factor authentication (2FA)</h2>
+  {% if two_factor %}
+    <div class="ud-verify-row">
+      <span>Two-factor authentication</span>
+      <span class="ud-badge ud-badge-ok">Enabled</span>
+    </div>
+    <p class="ud-hint">Use an authenticator app such as Google Authenticator or Authy to sign in.</p>
+    <form method="POST" action="{% url 'account_2fa_disable' %}" class="ud-form ud-form-narrow">
+      {% csrf_token %}
+      <div class="ud-field"><label>Current password</label><input type="password" name="password"></div>
+      <div class="ud-field"><label>Or current authenticator code</label><input type="text" name="code" inputmode="numeric" maxlength="6" placeholder="000000"></div>
+      <button class="ud-btn ud-btn-danger" type="submit" data-confirm="Disable two-factor authentication? You will need a password or a valid code to confirm.">Disable 2FA</button>
+    </form>
+  {% elif pending_2fa_secret %}
+    <p class="ud-hint">Scan this QR code with your authenticator app, then enter the 6-digit code to finish enabling 2FA.</p>
+    {% if pending_2fa_qr %}<p class="ud-center"><img class="ud-qr" src="{{ pending_2fa_qr }}" alt="2FA QR code"></p>{% endif %}
+    <p class="ud-hint ud-mut">Manual key: <span class="ud-mono ud-secret">{{ pending_2fa_secret }}</span> <button type="button" class="ud-btn ud-btn-text" data-copy="{{ pending_2fa_secret }}">Copy</button></p>
+    <form method="POST" action="{% url 'account_2fa_setup_verify' %}" class="ud-form ud-form-narrow">
+      {% csrf_token %}
+      <div class="ud-field"><label>Authenticator code</label><input type="text" name="code" inputmode="numeric" maxlength="6" placeholder="000000" required></div>
+      <button class="ud-btn ud-btn-primary" type="submit">Confirm &amp; enable</button>
+    </form>
+  {% else %}
+    <p class="ud-hint">Protect your account with an authenticator app.</p>
+    <form method="POST" action="{% url 'account_2fa_setup_start' %}" class="ud-form ud-form-narrow">
+      {% csrf_token %}
+      <div class="ud-field"><label>Your password</label><input type="password" name="password" required></div>
+      <button class="ud-btn ud-btn-primary" type="submit">Start 2FA setup</button>
+    </form>
+  {% endif %}
+  {% if fresh_recovery_codes %}
+    <div class="ud-recovery-codes">
+      <h3>Your recovery codes (shown once)</h3>
+      <p class="ud-hint">Store these safely. Each code can be used only once if you lose your authenticator device.</p>
+      <div class="ud-code-grid">
+        {% for code in fresh_recovery_codes %}<span class="ud-mono ud-code">{{ code }}</span>{% endfor %}
+      </div>
+      <button type="button" class="ud-btn ud-btn-outline" data-copy-all="{{ fresh_recovery_codes|join:' ' }}">Copy all</button>
+    </div>
+  {% endif %}
+</div>
+
+<div class="ud-card">
+  <h2 class="ud-card-title">Active sessions</h2>
+  {% if sessions %}
+  <div class="ud-session-list">
+    {% for row in sessions %}
+    <div class="ud-session-item">
+      <div>
+        <strong>{% if row.session.session_key == current_session_key %}This device{% else %}{{ row.session.session_key|slice:":8" }}…{% endif %}</strong>
+        {% if row.session.session_key == current_session_key %}<span class="ud-badge ud-badge-ok">Current</span>{% endif %}
+      </div>
+      <p class="ud-hint">
+        {% if row.data.ud_last_ua %}{{ row.data.ud_last_ua|slice:":70" }}{% else %}Unknown device{% endif %}
+        · IP {{ row.data.ud_last_ip|default:'unknown' }}
+        · signed in {{ row.data.ud_last_seen|default:row.session.expire_date|date:"d M Y H:i" }}
+      </p>
+    </div>
+    {% endfor %}
+  </div>
+  <form method="POST" action="{% url 'account_sessions_revoke' %}">
+    {% csrf_token %}
+    <button class="ud-btn ud-btn-danger-ghost" type="submit" data-confirm="Sign out all other devices? Your current session will stay active.">Sign out all other devices</button>
+  </form>
+  {% else %}
+  <p class="ud-hint">No active sessions to show.</p>
+  {% endif %}
+</div>
+
+{% if activity_logs %}
+<div class="ud-card">
+  <h2 class="ud-card-title">Recent security activity</h2>
+  <ul class="ud-log-list">
+    {% for log in activity_logs %}
+    <li>
+      <strong>{{ log.get_action_display }}</strong>
+      <span class="ud-mut">· {{ log.detail }}</span>
+      <span class="ud-mut">· {{ log.created }}</span>
+      {% if log.ip %}<span class="ud-mut">· IP {{ log.ip }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endblock %}

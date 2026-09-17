@@ -1,0 +1,63 @@
+{% extends 'store/account/account_center_base.html' %}
+{% block account_tab_content %}
+{% if wallet %}
+<div class="ud-card">
+  <h1 class="ud-page-title">Wallet &amp; Payments</h1>
+  <p class="ud-page-sub">Your seller wallet balance and transactions.</p>
+
+  <div class="ud-stat-grid">
+    <div class="ud-stat">
+      <span class="ud-stat-num">৳{{ wallet.balance|floatformat:2 }}</span>
+      <span class="ud-stat-label">Balance</span>
+    </div>
+    <div class="ud-stat">
+      <span class="ud-stat-num">৳{{ wallet.available_balance|floatformat:2 }}</span>
+      <span class="ud-stat-label">Available</span>
+    </div>
+    <div class="ud-stat">
+      <span class="ud-stat-num">৳{{ wallet.locked_balance|floatformat:2 }}</span>
+      <span class="ud-stat-label">Locked</span>
+    </div>
+  </div>
+
+  <div class="ud-inline-form ud-gap">
+    <a class="ud-btn ud-btn-primary" href="{% url 'wallet_recharge' %}">Recharge</a>
+    <a class="ud-btn ud-btn-outline" href="{% url 'dashboard_withdraw' %}">Withdraw</a>
+    <a class="ud-btn ud-btn-outline" href="{% url 'dashboard_wallet_transactions' %}">All transactions</a>
+    <a class="ud-btn ud-btn-outline" href="{% url 'dashboard_payout_methods' %}">Payout methods</a>
+  </div>
+</div>
+
+{% if transactions %}
+<div class="ud-card">
+  <h2 class="ud-card-title">Recent transactions</h2>
+  <div class="ud-table-wrap">
+    <table class="ud-table">
+      <thead>
+        <tr><th>Type</th><th>Description</th><th>Amount</th><th>Date</th></tr>
+      </thead>
+      <tbody>
+        {% for t in transactions %}
+        <tr>
+          <td>{{ t.get_type_display }}</td>
+          <td>{{ t.description }}</td>
+          <td class="ud-amount {% if t.amount > 0 %}ud-pos{% else %}ud-neg{% endif %}">{% if t.amount > 0 %}+{% endif %}৳{{ t.amount|floatformat:2 }}</td>
+          <td>{{ t.created|date:"d M Y" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% else %}
+<div class="ud-card ud-empty">
+  <h1 class="ud-page-title">Wallet &amp; Payments</h1>
+  <p>A seller wallet is not attached to this account.</p>
+  <p class="ud-hint">The wallet becomes available when you become a seller — no balance is shown because none exists on your account.</p>
+  {% if not partner %}
+  <a class="ud-btn ud-btn-primary" href="{% url 'dashboard_become_seller' %}">Become a seller</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

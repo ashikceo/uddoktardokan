@@ -13,8 +13,8 @@
 .dash-grid .dash-card i{font-size:36px;margin-bottom:5px;display:block}
 @media(max-width:1199px){.dash-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:991px){.dash-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:767px){.dash-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:479px){.dash-grid{grid-template-columns:1fr}}
+@media(max-width:767px){.dash-grid{grid-template-columns:repeat(2,1fr)}.dash-grid .dash-card-wide{grid-column:1/-1}}
+@media(max-width:479px){.dash-grid{grid-template-columns:repeat(2,1fr)}.dash-grid .dash-card{padding:16px 14px}.dash-grid .dash-card h2{font-size:28px}.dash-grid .dash-card i{font-size:28px}}
 .profit-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:15px;margin-bottom:25px}
 .profit-grid .profit-card{border:1px solid #eee;padding:20px;text-align:center;background:#f8f9fa;border-radius:8px}
 @media(max-width:1199px){.profit-grid{grid-template-columns:repeat(3,1fr)}}
@@ -41,7 +41,7 @@
             <strong style="font-size:16px;">{{ partner.name }}</strong>
             {% if partner.phone %}<p style="color:#888; font-size:12px; margin:2px 0;">{{ partner.phone }}</p>{% endif %}
         </div>
-        <a href="{% url 'dashboard_profile_edit' %}" class="btn btn-outline" style="font-size:11px; padding:6px 16px;"><i class="fa fa-edit"></i> Edit Profile</a>
+        <a href="{% url 'dashboard_store_edit' %}" class="btn btn-outline" style="font-size:11px; padding:6px 16px;"><i class="fa fa-edit"></i> Edit Store</a>
     </div>
 
     {% if total_revenue is not None %}
@@ -117,12 +117,12 @@
             <a href="{% url 'dashboard_product_create' %}" class="btn btn-outline" style="margin-top:10px; font-size:11px;">Add New</a>
         </div>
         <div class="dash-card">
-            <i class="fa fa-store" style="color:#e74847;"></i>
+            <a href="{% url 'partner_detail' partner.slug %}" target="_blank" rel="noopener" style="display:inline-block; text-decoration:none;"><i class="fa fa-store" style="color:#e74847;"></i></a>
             <p>Store Front</p>
             <a href="{% url 'partner_detail' partner.slug %}" class="btn btn-outline" style="margin-top:10px; font-size:11px;" target="_blank">View Store</a>
         </div>
         <div class="dash-card">
-            <i class="fa fa-globe" style="color:#007bff;"></i>
+            <a href="{% url 'dashboard_custom_domain' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-globe" style="color:#007bff;"></i></a>
             <p>Custom Domain</p>
             <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:{% if primary_domain %}{% if primary_domain.status == 'active' %}#28a745{% else %}#dc3545{% endif %}{% else %}#6c757d{% endif %};">
                 {% if primary_domain %}{{ primary_domain.domain }} ({{ primary_domain.get_status_display }}){% else %}Not set{% endif %}
@@ -130,7 +130,7 @@
             <a href="{% url 'dashboard_custom_domain' %}" class="btn btn-outline" style="margin-top:5px; font-size:11px;">Manage</a>
         </div>
         <div class="dash-card">
-            <i class="fa {% if partner.show_products %}fa-eye{% else %}fa-eye-slash{% endif %}" style="color:{% if partner.show_products %}#28a745{% else %}#dc3545{% endif %};"></i>
+            <a href="{% url 'dashboard_toggle_products' %}" style="display:inline-block; text-decoration:none;"><i class="fa {% if partner.show_products %}fa-eye{% else %}fa-eye-slash{% endif %}" style="color:{% if partner.show_products %}#28a745{% else %}#dc3545{% endif %};"></i></a>
             <p>Store Visibility</p>
             <div style="font-size:13px; font-weight:600; margin-bottom:8px; color:{% if partner.show_products %}#28a745{% else %}#dc3545{% endif %};">
                 {% if partner.show_products %}ON{% else %}OFF{% endif %}
@@ -140,7 +140,7 @@
             </a>
         </div>
         <div class="dash-card">
-            <i class="fa fa-th-large" style="color:{% if partner.show_all_products_section %}#28a745{% else %}#dc3545{% endif %};"></i>
+            <a href="{% url 'dashboard_toggle_all_products_section' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-th-large" style="color:{% if partner.show_all_products_section %}#28a745{% else %}#dc3545{% endif %};"></i></a>
             <p>All Products Section</p>
             <div style="font-size:13px; font-weight:600; margin-bottom:8px; color:{% if partner.show_all_products_section %}#28a745{% else %}#dc3545{% endif %};">
                 {% if partner.show_all_products_section %}ON{% else %}OFF{% endif %}
@@ -150,7 +150,7 @@
             </a>
         </div>
         <div class="dash-card">
-            <i class="fa fa-random" style="color:{% if partner.show_random_products_section %}#28a745{% else %}#dc3545{% endif %};"></i>
+            <a href="{% url 'dashboard_toggle_random_products_section' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-random" style="color:{% if partner.show_random_products_section %}#28a745{% else %}#dc3545{% endif %};"></i></a>
             <p>Random Products</p>
             <div style="font-size:13px; font-weight:600; margin-bottom:8px; color:{% if partner.show_random_products_section %}#28a745{% else %}#dc3545{% endif %};">
                 {% if partner.show_random_products_section %}ON{% else %}OFF{% endif %}
@@ -160,7 +160,7 @@
             </a>
         </div>
         <div class="dash-card">
-            <i class="fa fa-sliders" style="color:{% if partner.show_slider %}#28a745{% else %}#dc3545{% endif %};"></i>
+            <a href="{% url 'dashboard_toggle_slider' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-sliders" style="color:{% if partner.show_slider %}#28a745{% else %}#dc3545{% endif %};"></i></a>
             <p>Slider</p>
             <div style="font-size:13px; font-weight:600; margin-bottom:8px; color:{% if partner.show_slider %}#28a745{% else %}#dc3545{% endif %};">
                 {% if partner.show_slider %}ON{% else %}OFF{% endif %}
@@ -170,15 +170,15 @@
             </a>
             <a href="{% url 'dashboard_slider_list' %}" class="btn btn-outline" style="font-size:11px;">Manage</a>
         </div>
-        <div class="dash-card">
-            <i class="fa fa-credit-card" style="color:#e74847;"></i>
+        <div class="dash-card dash-card-wide">
+            <a href="{% url 'pos_dashboard' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-credit-card" style="color:#e74847;"></i></a>
             <p>POS</p>
             <div style="font-size:12px; color:#888; margin-bottom:8px;">In-store sales</div>
             <a href="{% url 'pos_dashboard' %}" class="btn btn-primary" style="font-size:11px; padding:6px 14px;">Open POS</a>
             <a href="{% url 'pos_order_list' %}" class="btn btn-outline" style="font-size:11px; padding:6px 14px;">Orders</a>
         </div>
-        <div class="dash-card">
-            <i class="fa fa-medkit" style="color:#6f42c1;"></i>
+        <div class="dash-card dash-card-wide">
+            <a href="{% url 'medicine_pos_dashboard' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-medkit" style="color:#6f42c1;"></i></a>
             <p>Medicine POS</p>
             <div style="font-size:12px; color:#888; margin-bottom:8px;">
                 {% if partner.medicine_subscription and partner.medicine_subscription.is_accessible %}
@@ -196,17 +196,17 @@
             <a href="{% url 'medicine_pos_settings' %}" class="btn btn-outline" style="font-size:11px; padding:6px 14px; border-color:#6c757d; color:#495057;">Settings</a>
         </div>
         <div class="dash-card">
-            <i class="fa fa-star" style="color:#e74847;"></i>
+            <a href="{% url 'dashboard_reviews' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-star" style="color:#e74847;"></i></a>
             <p>Reviews</p>
             <a href="{% url 'dashboard_reviews' %}" class="btn btn-outline" style="margin-top:10px; font-size:11px;">Manage Reviews</a>
         </div>
         <div class="dash-card">
-            <i class="fa fa-bars" style="color:#e74847;"></i>
+            <a href="{% url 'dashboard_menu_list' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-bars" style="color:#e74847;"></i></a>
             <p>Menu</p>
             <a href="{% url 'dashboard_menu_list' %}" class="btn btn-outline" style="margin-top:10px; font-size:11px;">Manage Menu</a>
         </div>
         <div class="dash-card">
-            <i class="fa fa-picture-o" style="color:#e74847;"></i>
+            <a href="{% url 'dashboard_side_banners' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-picture-o" style="color:#e74847;"></i></a>
             <p>Side Banners</p>
             <a href="{% url 'dashboard_side_banners' %}" class="btn btn-outline" style="margin-top:10px; font-size:11px;">Manage Banners</a>
         </div>
@@ -217,12 +217,12 @@
             <a href="{% url 'wallet_recharge' %}" class="btn btn-primary" style="margin-top:5px; font-size:11px; padding:6px 14px; background:#6f42c1; border-color:#6f42c1;">Recharge</a>
         </div>
         <div class="dash-card">
-            <i class="fa fa-bar-chart" style="color:#e74847;"></i>
+            <a href="{% url 'dashboard_analytics' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-bar-chart" style="color:#e74847;"></i></a>
             <p>Analytics</p>
             <a href="{% url 'dashboard_analytics' %}" class="btn btn-outline" style="margin-top:10px; font-size:11px;">View Analytics</a>
         </div>
         <div class="dash-card">
-            <i class="fa fa-ticket" style="color:#e74847;"></i>
+            <a href="{% url 'dashboard_tickets' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-ticket" style="color:#e74847;"></i></a>
             <p>Support Tickets</p>
             <a href="{% url 'dashboard_tickets' %}" class="btn btn-outline" style="font-size:11px;">View Tickets</a>
             <a href="{% url 'dashboard_ticket_create' %}" class="btn btn-primary" style="font-size:11px; padding:6px 14px;">Create Ticket</a>
@@ -231,42 +231,42 @@
             {% endif %}
         </div>
         <div class="dash-card">
-            <i class="fa fa-envelope" style="color:#e74847;"></i>
+            <a href="{% url 'partner_message_list' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-envelope" style="color:#e74847;"></i></a>
             <p>Messages</p>
             <a href="{% url 'partner_message_list' %}" class="btn btn-outline" style="margin-top:10px; font-size:11px;">View Messages</a>
             {% if unread_messages %}<span style="position:absolute;top:-5px;right:-5px;background:#dc3545;color:#fff;border-radius:50%;width:22px;height:22px;font-size:11px;line-height:22px;text-align:center;font-weight:700;">{{ unread_messages }}</span>{% endif %}
         </div>
         <div class="dash-card">
-            <i class="fa fa-question-circle" style="color:#e74847;"></i>
+            <a href="{% url 'partner_qa_list' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-question-circle" style="color:#e74847;"></i></a>
             <p>Product Q&amp;A</p>
             <a href="{% url 'partner_qa_list' %}" class="btn btn-outline" style="margin-top:10px; font-size:11px;">Manage Q&amp;A</a>
         </div>
         <div class="dash-card">
-            <i class="fa fa-bell" style="color:#e74847;"></i>
+            <a href="{% url 'dashboard_notifications' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-bell" style="color:#e74847;"></i></a>
             <p>Notifications</p>
             <a href="{% url 'dashboard_notifications' %}" class="btn btn-outline" style="margin-top:10px; font-size:11px;">View</a>
             {% if unread_notifications %}<span style="position:absolute;top:-5px;right:-5px;background:#dc3545;color:#fff;border-radius:50%;width:22px;height:22px;font-size:11px;line-height:22px;text-align:center;font-weight:700;">{{ unread_notifications }}</span>{% endif %}
         </div>
         <div class="dash-card">
-            <i class="fa fa-upload" style="color:#e74847;"></i>
+            <a href="{% url 'dashboard_product_bulk_upload' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-upload" style="color:#e74847;"></i></a>
             <p>Bulk Upload</p>
             <a href="{% url 'dashboard_product_bulk_upload' %}" class="btn btn-outline" style="margin-top:10px; font-size:11px;">Import Products</a>
         </div>
         <div class="dash-card">
-            <i class="fa fa-undo" style="color:#e74847;"></i>
+            <a href="{% url 'dashboard_refunds' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-undo" style="color:#e74847;"></i></a>
             <p>Refunds</p>
             <a href="{% url 'dashboard_refunds' %}" class="btn btn-outline" style="margin-top:10px; font-size:11px;">View Refunds</a>
         </div>
         {% if partner.is_dealer or partner.is_union_agent %}
         <div class="dash-card">
-            <i class="fa fa-users" style="color:#e74847;"></i>
+            <a href="{% url 'dashboard_sellers' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-users" style="color:#e74847;"></i></a>
             <p>Sellers</p>
             <a href="{% url 'dashboard_sellers' %}" class="btn btn-outline" style="margin-top:10px; font-size:11px;">Manage Sellers</a>
         </div>
         {% endif %}
         {% if partner.is_dealer %}
         <div class="dash-card">
-            <i class="fa fa-handshake-o" style="color:#e74847;"></i>
+            <a href="{% url 'dashboard_union_agents' %}" style="display:inline-block; text-decoration:none;"><i class="fa fa-handshake-o" style="color:#e74847;"></i></a>
             <p>Union Agents</p>
             <a href="{% url 'dashboard_union_agents' %}" class="btn btn-outline" style="margin-top:10px; font-size:11px;">Manage Union Agents</a>
         </div>
@@ -371,3 +371,5 @@
     </div>
 </div>
 {% endblock %}
+
+

@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}My Account - {{ site_name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/account-center.css' %}?v=2">
+{% endblock %}
+
+{% block content %}
+<div class="ud-account-wrap ud-profile-page">
+<div class="ud-account-container">
+
+  <aside class="ud-account-sidebar">
+    <div class="ud-side-header">
+      {% if profile.avatar %}
+      <img class="ud-avatar-md" src="{{ profile.avatar.url }}" alt="Profile picture">
+      {% else %}
+      <img class="ud-avatar-md" src="/static/img/placeholder_150x150.png" alt="Profile picture">
+      {% endif %}
+      <div>
+        <h2>{{ request.user.first_name }} {{ request.user.last_name }}</h2>
+        <p>{{ request.user.email }}</p>
+      </div>
+    </div>
+    <nav class="ud-account-nav" aria-label="Account menu">
+      <a href="{% url 'account_overview' %}" {% if account_page == 'account_overview' %}class="ud-nav-active"{% endif %}>Overview</a>
+      <a href="{% url 'account_info' %}" {% if account_page == 'account_info' %}class="ud-nav-active"{% endif %}>Personal Info</a>
+      <a href="{% url 'account_security' %}" {% if account_page == 'account_security' %}class="ud-nav-active"{% endif %}>Security</a>
+      <a href="{% url 'account_addresses' %}" {% if account_page == 'account_addresses' %}class="ud-nav-active"{% endif %}>Addresses</a>
+      <a href="{% url 'account_notifications' %}" {% if account_page == 'account_notifications' %}class="ud-nav-active"{% endif %}>Notifications</a>
+      <a href="{% url 'account_wallet' %}" {% if account_page == 'account_wallet' %}class="ud-nav-active"{% endif %}>Wallet &amp; Payments</a>
+      <a href="{% url 'account_orders' %}" {% if account_page == 'account_orders' %}class="ud-nav-active"{% endif %}>Orders</a>
+      <a href="{% url 'account_wishlist' %}" {% if account_page == 'account_wishlist' %}class="ud-nav-active"{% endif %}>Wishlist</a>
+      <a href="{% url 'account_settings' %}" {% if account_page == 'account_settings' %}class="ud-nav-active"{% endif %}>Settings</a>
+    </nav>
+    <a class="ud-side-back" href="{% url 'dashboard' %}">&larr; Back to dashboard</a>
+  </aside>
+
+  <section class="ud-account-main">
+    {% block account_tab_content %}{% endblock %}
+  </section>
+
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/account-center.js' %}"></script>
+{% endblock %}

@@ -2,6 +2,7 @@ from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from django.views.generic.base import RedirectView, TemplateView
 from . import views
+from . import account_views
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -67,7 +68,25 @@ urlpatterns = [
     path('dashboard/products/trash/restore/', views.dashboard_trash_restore, name='dashboard_trash_restore'),
     path('dashboard/products/trash/restore-all/', views.dashboard_trash_restore_all, name='dashboard_trash_restore_all'),
     path('dashboard/products/trash/empty/', views.dashboard_trash_empty, name='dashboard_trash_empty'),
-    path('dashboard/profile/', views.dashboard_profile_edit, name='dashboard_profile_edit'),
+    path('dashboard/store/', views.dashboard_store_edit, name='dashboard_store_edit'),
+    path('dashboard/store/legacy/', RedirectView.as_view(pattern_name='dashboard_store_edit', permanent=False), name='dashboard_store_edit_legacy'),
+    path('dashboard/profile/', account_views.account_overview, name='account_overview'),
+    path('dashboard/profile/info/', account_views.account_info, name='account_info'),
+    path('dashboard/profile/info/otp-request/', account_views.account_otp_request, name='account_otp_request'),
+    path('dashboard/profile/info/otp-verify/', account_views.account_otp_verify, name='account_otp_verify'),
+    path('dashboard/profile/security/', account_views.account_security, name='account_security'),
+    path('dashboard/profile/security/password/', account_views.account_password_change, name='account_password_change'),
+    path('dashboard/profile/security/2fa/start/', account_views.account_2fa_setup_start, name='account_2fa_setup_start'),
+    path('dashboard/profile/security/2fa/verify/', account_views.account_2fa_setup_verify, name='account_2fa_setup_verify'),
+    path('dashboard/profile/security/2fa/disable/', account_views.account_2fa_disable, name='account_2fa_disable'),
+    path('dashboard/profile/security/sessions/revoke/', account_views.account_sessions_revoke, name='account_sessions_revoke'),
+    path('dashboard/profile/addresses/', account_views.account_addresses, name='account_addresses'),
+    path('dashboard/profile/notifications/', account_views.account_notifications, name='account_notifications'),
+    path('dashboard/profile/wallet/', account_views.account_wallet, name='account_wallet'),
+    path('dashboard/profile/orders/', account_views.account_orders, name='account_orders'),
+    path('dashboard/profile/wishlist/', account_views.account_wishlist, name='account_wishlist'),
+    path('dashboard/profile/settings/', account_views.account_settings, name='account_settings'),
+    path('login/2fa/', account_views.login_2fa, name='login_2fa'),
     path('dashboard/orders/', views.dashboard_orders, name='dashboard_orders'),
     path('dashboard/my-orders/', views.customer_orders, name='customer_orders'),
     path('dashboard/my-orders/<int:order_id>/', views.customer_order_detail, name='customer_order_detail'),

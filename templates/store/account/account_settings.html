@@ -1,0 +1,51 @@
+{% extends 'store/account/account_center_base.html' %}
+{% block account_tab_content %}
+<div class="ud-card">
+  <h1 class="ud-page-title">Account settings</h1>
+  <p class="ud-page-sub">Preferences and account management.</p>
+</div>
+
+<div class="ud-card">
+  <h2 class="ud-card-title">Notification preferences</h2>
+  <form method="POST" action="{% url 'account_settings' %}" class="ud-form ud-form-narrow">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_prefs">
+    <label class="ud-check-row">
+      <div><strong>Order updates</strong></div>
+      <input type="checkbox" name="order_updates" {% if prefs.order_updates %}checked{% endif %}>
+    </label>
+    <label class="ud-check-row">
+      <div><strong>Review &amp; Q&amp;A replies</strong></div>
+      <input type="checkbox" name="review_replies" {% if prefs.review_replies %}checked{% endif %}>
+    </label>
+    <label class="ud-check-row">
+      <div><strong>Promotions &amp; offers</strong></div>
+      <input type="checkbox" name="promotions" {% if prefs.promotions %}checked{% endif %}>
+    </label>
+    <label class="ud-check-row">
+      <div><strong>Security alerts</strong></div>
+      <input type="checkbox" name="security_alerts" {% if prefs.security_alerts %}checked{% endif %}>
+    </label>
+    <button class="ud-btn ud-btn-primary" type="submit">Save preferences</button>
+  </form>
+</div>
+
+<div class="ud-card">
+  <h2 class="ud-card-title">Account data</h2>
+  <ul class="ud-log-list">
+    <li>{{ address_count }} saved address{{ address_count|pluralize }}</li>
+    <li><a href="{% url 'account_orders' %}">Order history</a></li>
+  </ul>
+</div>
+
+<div class="ud-card">
+  <h2 class="ud-card-title">Deactivate account</h2>
+  <p class="ud-hint">Deactivating disables your access until a staff member re-activates it. Order history is kept but you will not be able to sign in.</p>
+  <form method="POST" action="{% url 'account_settings' %}" class="ud-form ud-form-narrow">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="deactivate">
+    <div class="ud-field"><label>Your password to confirm</label><input type="password" name="password" required></div>
+    <button class="ud-btn ud-btn-danger" type="submit" data-confirm="Deactivate your account? You will be signed out and unable to log in until a staff member re-activates the account.">Deactivate account</button>
+  </form>
+</div>
+{% endblock %}

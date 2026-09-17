@@ -1,0 +1,143 @@
+{% extends 'store/account/account_center_base.html' %}
+{% block account_tab_content %}
+<div class="ud-card">
+  <h1 class="ud-page-title">Personal Info</h1>
+  <p class="ud-page-sub">Your details, profile picture and contact verification.</p>
+
+  <form method="POST" action="{% url 'account_info' %}" class="ud-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="update_info">
+    <div class="ud-form-grid">
+      <div class="ud-field">
+        <label>First name</label>
+        <input type="text" name="first_name" value="{{ user.first_name }}" maxlength="150">
+      </div>
+      <div class="ud-field">
+        <label>Last name</label>
+        <input type="text" name="last_name" value="{{ user.last_name }}" maxlength="150">
+      </div>
+    </div>
+    <div class="ud-form-grid ud-form-grid-3">
+      <div class="ud-field">
+        <label>Gender</label>
+        <select name="gender">
+          <option value="" {% if not profile.gender %}selected{% endif %}>Not specified</option>
+          <option value="male" {% if profile.gender == 'male' %}selected{% endif %}>Male</option>
+          <option value="female" {% if profile.gender == 'female' %}selected{% endif %}>Female</option>
+          <option value="other" {% if profile.gender == 'other' %}selected{% endif %}>Other</option>
+        </select>
+      </div>
+      <div class="ud-field">
+        <label>Date of birth</label>
+        <input type="date" name="date_of_birth" value="{{ profile.date_of_birth|date:'Y-m-d' }}">
+      </div>
+      <div class="ud-field">
+        <label>Phone</label>
+        <input type="tel" name="phone" value="{{ profile.phone }}" maxlength="20" placeholder="01XXXXXXXXX">
+      </div>
+    </div>
+    <div class="ud-field">
+      <label>Bio</label>
+      <textarea name="bio" rows="3" maxlength="600">{{ profile.bio }}</textarea>
+    </div>
+    <button class="ud-btn ud-btn-primary" type="submit">Save changes</button>
+  </form>
+</div>
+
+<div class="ud-card">
+  <h2 class="ud-card-title">Profile picture</h2>
+  {% if profile.avatar %}
+  <img class="ud-avatar-lg" src="{{ profile.avatar.url }}" alt="Profile picture">
+  {% else %}
+  <img class="ud-avatar-lg" src="/static/img/placeholder_150x150.png" alt="Profile picture">
+  {% endif %}
+  <form method="POST" enctype="multipart/form-data" action="{% url 'account_info' %}" class="ud-inline-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="upload_avatar">
+    <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp,image/gif" required>
+    <button class="ud-btn ud-btn-primary" type="submit">Upload</button>
+  </form>
+  {% if profile.avatar %}
+  <form method="POST" action="{% url 'account_info' %}" class="ud-inline-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="delete_avatar">
+    <button class="ud-btn ud-btn-danger-ghost" type="submit">Remove picture</button>
+  </form>
+  {% endif %}
+  <p class="ud-hint">JPG, PNG, WEBP or GIF, up to 5 MB.</p>
+</div>
+
+<div class="ud-card">
+  <h2 class="ud-card-title">Email address</h2>
+  <div class="ud-verify-row">
+    <span class="ud-mono">{{ user.email }}</span>
+    {% if profile.email_verified %}
+    <span class="ud-badge ud-badge-ok">Verified</span>
+    {% else %}
+    <span class="ud-badge ud-badge-warn">Unverified</span>
+    {% endif %}
+  </div>
+  {% if not profile.email_verified %}
+  <form method="POST" action="{% url 'account_otp_request' %}" class="ud-inline-form">
+    {% csrf_token %}
+    <input type="hidden" name="purpose" value="email_verify">
+    <button class="ud-btn ud-btn-outline" type="submit">Send verification code</button>
+  </form>
+  <form method="POST" action="{% url 'account_otp_verify' %}" class="ud-inline-form ud-otp-form">
+    {% csrf_token %}
+    <input type="hidden" name="purpose" value="email_verify">
+    <input type="text" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="6-digit code" required>
+    <button class="ud-btn ud-btn-primary" type="submit">Verify email</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="ud-card">
+  <h2 class="ud-card-title">Change email address</h2>
+  <div class="ud-field">
+    <label>Current email</label>
+    <input type="email" value="{{ user.email }}" disabled>
+    <p class="ud-hint">To change your email, request a code to the new address below, then confirm it.</p>
+  </div>
+  <form method="POST" action="{% url 'account_otp_request' %}" class="ud-inline-form">
+    {% csrf_token %}
+    <input type="hidden" name="purpose" value="email_change">
+    <input type="email" name="new_email" placeholder="new@email.com" required>
+    <button class="ud-btn ud-btn-outline" type="submit">Send code to new email</button>
+  </form>
+  <form method="POST" action="{% url 'account_otp_verify' %}" class="ud-inline-form ud-otp-form">
+    {% csrf_token %}
+    <input type="hidden" name="purpose" value="email_change">
+    <input type="text" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="6-digit code" required>
+    <button class="ud-btn ud-btn-primary" type="submit">Confirm new email</button>
+  </form>
+</div>
+
+<div class="ud-card">
+  <h2 class="ud-card-title">Phone number</h2>
+  <div class="ud-verify-row">
+    <span class="ud-mono">{{ profile.phone|default:'Not provided' }}</span>
+    {% if profile.phone and profile.phone_verified %}
+    <span class="ud-badge ud-badge-ok">Verified</span>
+    {% elif profile.phone %}
+    <span class="ud-badge ud-badge-warn">Unverified</span>
+    {% endif %}
+  </div>
+  {% if profile.phone and not profile.phone_verified %}
+  <form method="POST" action="{% url 'account_otp_request' %}" class="ud-inline-form">
+    {% csrf_token %}
+    <input type="hidden" name="purpose" value="phone_verify">
+    <button class="ud-btn ud-btn-outline" type="submit">Send verification code</button>
+  </form>
+  <form method="POST" action="{% url 'account_otp_verify' %}" class="ud-inline-form ud-otp-form">
+    {% csrf_token %}
+    <input type="hidden" name="purpose" value="phone_verify">
+    <input type="text" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="6-digit code" required>
+    <button class="ud-btn ud-btn-primary" type="submit">Verify phone</button>
+  </form>
+  <p class="ud-hint">Save a phone number in Personal Info, then verify it here.</p>
+  {% else %}
+  <p class="ud-hint">Enter a phone number above and save to start verification.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends 'store/account/account_center_base.html' %}
+{% block account_tab_content %}
+<div class="ud-card">
+  <div class="ud-card-head">
+    <div>
+      <h1 class="ud-page-title">My Orders</h1>
+      <p class="ud-page-sub">Your order history on {{ site_name }}.</p>
+    </div>
+    <a href="{% url 'customer_orders' %}" class="ud-btn ud-btn-outline">Track orders</a>
+  </div>
+
+  {% if orders %}
+  <div class="ud-order-list">
+    {% for order in orders %}
+    <div class="ud-order">
+      <div class="ud-order-head">
+        <strong>Order #{{ order.id }}</strong>
+        <span class="ud-order-date">{{ order.created|date:"d M Y, H:i" }}</span>
+        <span class="ud-badge ud-badge-ok">{{ order.get_status_display }}</span>
+        <span class="ud-amount">৳{{ order.total|floatformat:2 }}</span>
+      </div>
+      <ul class="ud-order-items">
+        {% for item in order.items.all %}
+        <li>
+          {% if item.product %}{{ item.product.name }}{% else %}Product #{{ item.product_id }}{% endif %}
+          <span class="ud-mut">× {{ item.quantity }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="ud-inline-form ud-gap">
+        <a class="ud-btn ud-btn-text" href="{% url 'customer_order_detail' order.pk %}">Details</a>
+        <a class="ud-btn ud-btn-text" href="{% url 'public_print_invoice' order.pk %}">Invoice</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="ud-empty">
+    <p>You haven't placed any orders yet.</p>
+    <a class="ud-btn ud-btn-primary" href="{% url 'home' %}">Start shopping</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

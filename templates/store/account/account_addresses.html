@@ -1,0 +1,120 @@
+{% extends 'store/account/account_center_base.html' %}
+{% block account_tab_content %}
+<div class="ud-card">
+  <div class="ud-card-head">
+    <div>
+      <h1 class="ud-page-title">My Addresses</h1>
+      <p class="ud-page-sub">Delivery addresses used at checkout.</p>
+    </div>
+    <button type="button" class="ud-btn ud-btn-primary" data-toggle="ud-add-address">+ Add new address</button>
+  </div>
+
+  <div id="ud-add-address" style="display:none;">
+    <form method="POST" action="{% url 'dashboard_address_add' %}" class="ud-form ud-form-narrow">
+      {% csrf_token %}
+      <h3 class="ud-card-title">New address</h3>
+      <div class="ud-form-grid">
+        <div class="ud-field"><label>Label <span class="ud-mut">(e.g. Home, Office)</span></label><input type="text" name="label" placeholder="Home"></div>
+        <div class="ud-field"><label>Type</label>
+          <select name="address_type">
+            <option value="home">Home</option>
+            <option value="office">Office</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="ud-form-grid">
+        <div class="ud-field"><label>Full name</label><input type="text" name="name"></div>
+        <div class="ud-field"><label>Phone</label><input type="tel" name="phone"></div>
+      </div>
+      <div class="ud-field"><label>Street address</label><input type="text" name="street_address" placeholder="House, road, building"></div>
+      <div class="ud-form-grid">
+        <div class="ud-field"><label>Area / Thana / Upazila</label><input type="text" name="area"></div>
+        <div class="ud-field"><label>District</label><input type="text" name="district"></div>
+      </div>
+      <div class="ud-form-grid">
+        <div class="ud-field"><label>Division</label><input type="text" name="division"></div>
+        <div class="ud-field"><label>Postal code</label><input type="text" name="zip_code"></div>
+      </div>
+      <label class="ud-check"><input type="checkbox" name="is_default"> Set as default address</label>
+      <div class="ud-form-actions">
+        <button class="ud-btn ud-btn-primary" type="submit">Save address</button>
+        <button type="button" class="ud-btn ud-btn-text" data-toggle="ud-add-address">Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  {% if addresses %}
+  <div class="ud-address-grid">
+    {% for addr in addresses %}
+    <div class="ud-address-card{% if addr.is_default %} ud-address-default{% endif %}">
+      <div class="ud-address-head">
+        <span class="ud-address-icon">{{ addr.get_address_type_display|default:addr.label|default:'📍' }}</span>
+        <div>
+          <strong>{{ addr.label|default:addr.get_address_type_display }}</strong>
+          {% if addr.is_default %}<span class="ud-badge ud-badge-ok">Default</span>{% endif %}
+        </div>
+      </div>
+      <p class="ud-address-line">{{ addr.name }}</p>
+      <p class="ud-address-line">{{ addr.phone }}</p>
+      <p class="ud-address-line">
+        {{ addr.street_address }}{% if addr.area %}, {{ addr.area }}{% endif %}{% if addr.district %}, {{ addr.district }}{% endif %}{% if addr.division %}, {{ addr.division }}{% endif %}{% if addr.zip_code %}, {{ addr.zip_code }}{% endif %}
+      </p>
+      <div class="ud-address-actions">
+        {% if not addr.is_default %}
+        <form method="POST" action="{% url 'dashboard_address_set_default' addr.pk %}">
+          {% csrf_token %}
+          <button class="ud-btn ud-btn-text" type="submit">Set default</button>
+        </form>
+        {% endif %}
+        <button type="button" class="ud-btn ud-btn-text" data-edit-address="{{ addr.pk }}">Edit</button>
+        <form method="POST" action="{% url 'dashboard_address_delete' addr.pk %}">
+          {% csrf_token %}
+          <button class="ud-btn ud-btn-text ud-danger" type="submit" data-confirm="Delete this address?">Delete</button>
+        </form>
+      </div>
+
+      <form method="POST" action="{% url 'dashboard_address_edit' addr.pk %}" class="ud-form ud-edit-address" data-edit-address-form="{{ addr.pk }}" style="display:none;">
+        {% csrf_token %}
+        <h4>Edit address</h4>
+        <div class="ud-form-grid">
+          <div class="ud-field"><label>Label</label><input type="text" name="label" value="{{ addr.label }}"></div>
+          <div class="ud-field"><label>Type</label>
+            <select name="address_type">
+              <option value="home" {% if addr.address_type == 'home' %}selected{% endif %}>Home</option>
+              <option value="office" {% if addr.address_type == 'office' %}selected{% endif %}>Office</option>
+              <option value="other" {% if addr.address_type == 'other' %}selected{% endif %}>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="ud-form-grid">
+          <div class="ud-field"><label>Full name</label><input type="text" name="name" value="{{ addr.name }}"></div>
+          <div class="ud-field"><label>Phone</label><input type="tel" name="phone" value="{{ addr.phone }}"></div>
+        </div>
+        <div class="ud-field"><label>Street address</label><input type="text" name="street_address" value="{{ addr.street_address }}"></div>
+        <div class="ud-form-grid">
+          <div class="ud-field"><label>Area / Thana / Upazila</label><input type="text" name="area" value="{{ addr.area }}"></div>
+          <div class="ud-field"><label>District</label><input type="text" name="district" value="{{ addr.district }}"></div>
+        </div>
+        <div class="ud-form-grid">
+          <div class="ud-field"><label>Division</label><input type="text" name="division" value="{{ addr.division }}"></div>
+          <div class="ud-field"><label>Postal code</label><input type="text" name="zip_code" value="{{ addr.zip_code }}"></div>
+        </div>
+        <label class="ud-check"><input type="checkbox" name="is_default" {% if addr.is_default %}checked{% endif %}> Set as default address</label>
+        <div class="ud-form-actions">
+          <button class="ud-btn ud-btn-primary" type="submit">Update address</button>
+          <button type="button" class="ud-btn ud-btn-text" data-cancel-edit-address="{{ addr.pk }}">Cancel</button>
+        </div>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="ud-empty">
+    <p>You have no saved addresses yet.</p>
+    <p class="ud-hint">Add an address to make checkout faster.</p>
+  </div>
+  {% endif %}
+  <p class="ud-hint">Existing division / district / area information is preserved when you edit an address — only fields you change are updated.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Two-Step Verification - {{ site_name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/account-center.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="ud-profile-page">
+<div class="ud-2fa-standalone">
+  <div class="ud-card">
+    <h1 class="ud-page-title">Two-step verification</h1>
+    <p class="ud-page-sub">Enter the 6-digit code from your authenticator app for <strong>{{ user.username }}</strong>.</p>
+
+    <form method="POST" class="ud-form">
+      {% csrf_token %}
+      <div class="ud-field">
+        <label>Authenticator code</label>
+        <input type="text" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required autofocus>
+      </div>
+      <button class="ud-btn ud-btn-primary ud-btn-block" type="submit">Verify &amp; sign in</button>
+    </form>
+
+    <div class="ud-sep"></div>
+
+    <form method="POST" class="ud-form">
+      {% csrf_token %}
+      <div class="ud-field">
+        <label>Lost your device? Use a recovery code</label>
+        <input type="text" name="recovery_code" placeholder="XXXXX-XXXXX-XXXXX" autocomplete="off">
+      </div>
+      <button class="ud-btn ud-btn-outline ud-btn-block" type="submit">Use recovery code</button>
+    </form>
+
+    <p class="ud-hint">
+      {% if next %}<span class="ud-hint">You'll return to your destination after verification.</span>{% endif %}
+      This check is required because two-factor authentication is enabled on your account.
+    </p>
+  </div>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/account-center.js' %}"></script>
+{% endblock %}

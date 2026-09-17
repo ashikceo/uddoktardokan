@@ -24,6 +24,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
+from django.views.decorators.http import require_POST
 from django_ratelimit.decorators import ratelimit
 from urllib.parse import urlencode
 
@@ -40,7 +41,7 @@ def validate_upload(file_obj):
     if file_obj.size > MAX_UPLOAD_SIZE:
         raise ValueError(f'File too large ({file_obj.size // 1024} KB). Maximum 5 MB.')
     return True
-from .models import Product, Category, Partner, Cart, CartItem, BlogPost, Contact, Order, OrderItem, Slider, HomeBanner, ProductReview, PartnerBanner, PartnerNavMenu, Page, SideBanner, ShopSidebarSlider, ShopBanner, ShopSidebarBottomBanner, ProductColorVariant, ProductSizeVariant, ProductImage, LandingPage, ServerFee, Coupon, CouponUsage, CustomOrder, AdminCommission, PartnerWallet, WalletTransaction, WithdrawalRequest, PayoutMethod, WalletSettings, PlatformBalance, Wishlist, WishlistItem, Notification, ShippingRule, RefundRequest, SiteLogo, ManualPaymentMethod, PosOrder, PosOrderItem, PartnerSlider, Conversation, Message, ConversationReadStatus, ProductQA, SupportTicket, TicketReply, PRESET_COLORS, PRESET_SIZES, MedicineProduct, MedicinePosOrder, MedicinePosOrderItem, MedicineSubscription, WalletRechargeInstruction, SubscriptionPackage, Address, THEME_CHOICES, MedicineInventory, MedicineInventoryLog, MedicineOrderDraft, DiscountCardContent, ShopSliderConfig, PromoCard, BrandLogo
+from .models import Product, Category, Partner, Cart, CartItem, BlogPost, Contact, Order, OrderItem, Slider, HomeBanner, ProductReview, PartnerBanner, PartnerNavMenu, Page, SideBanner, ShopSidebarSlider, ShopBanner, ShopSidebarBottomBanner, ProductColorVariant, ProductSizeVariant, ProductImage, LandingPage, ServerFee, Coupon, CouponUsage, CustomOrder, AdminCommission, PartnerWallet, WalletTransaction, WithdrawalRequest, PayoutMethod, WalletSettings, PlatformBalance, Wishlist, WishlistItem, Notification, ShippingRule, RefundRequest, SiteLogo, ManualPaymentMethod, PosOrder, PosOrderItem, PartnerSlider, Conversation, Message, ConversationReadStatus, ProductQA, SupportTicket, TicketReply, PRESET_COLORS, PRESET_SIZES, MedicineProduct, MedicinePosOrder, MedicinePosOrderItem, MedicineSubscription, WalletRechargeInstruction, SubscriptionPackage, Address, THEME_CHOICES, MedicineInventory, MedicineInventoryLog, MedicineOrderDraft, DiscountCardContent, ShopSliderConfig, PromoCard, BrandLogo, THEME_PRESETS
 
 @user_passes_test(lambda u: u.is_authenticated and u.is_staff, login_url='custom_admin:login')
 def admin_upload_image(request):
@@ -559,10 +560,24 @@ def login_view(request):
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
-            login(request, user, backend=BACKEND)
+            from .models import AccountActivityLog, TwoFactorBackup
             next_url = request.GET.get('next', '/')
             if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
                 next_url = '/'
+            if TwoFactorBackup.objects.filter(user=user).exists():
+                request.session['pending_2fa_user'] = user.pk
+                if next_url != '/':
+                    request.session['next_after_2fa'] = next_url
+                request.session.save()
+                return redirect('login_2fa')
+            login(request, user, backend=BACKEND)
+            request.session['ud_last_seen'] = timezone.now().isoformat()
+            request.session['ud_last_ip'] = request.META.get('REMOTE_ADDR', '')
+            request.session['ud_last_ua'] = request.META.get('HTTP_USER_AGENT', '')[:380]
+            AccountActivityLog.objects.create(
+                user=user, action='login', ip=request.META.get('REMOTE_ADDR', ''),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:380],
+            )
             return redirect(next_url)
         logger.warning('Failed login attempt for %s from %s', request.POST.get('username', ''), request.META.get('REMOTE_ADDR', ''))
     else:
@@ -727,6 +742,13 @@ def update_cart(request, item_id):
 
 
 def logout_view(request):
+    if request.user.is_authenticated:
+        from .models import AccountActivityLog
+        AccountActivityLog.objects.create(
+            user=request.user, action='logout',
+            ip=request.META.get('REMOTE_ADDR', ''),
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:380],
+        )
     logout(request)
     return render(request, 'store/logout.html')
 
@@ -2443,33 +2465,43 @@ def dashboard_product_duplicate(request, pk):
 
 
 @login_required
-def dashboard_profile_edit(request):
+def dashboard_store_edit(request):
     try:
         partner = request.user.partner
     except Partner.DoesNotExist:
         return redirect('dashboard')
+
+    def _render():
+        extra_banners = partner.extra_banners.all()
+        return render(request, 'store/dashboard_profile_edit.html', {
+            'partner': partner,
+            'extra_banners': extra_banners,
+            'THEME_CHOICES': THEME_CHOICES,
+            'THEME_PRESETS': THEME_PRESETS,
+            'store_public_url': request.build_absolute_uri(
+                reverse('partner_detail', kwargs={'slug': partner.slug})),
+        })
+
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
-        phone = request.POST.get('phone', '').strip()
-        description = request.POST.get('description', '').strip()
+        if not name:
+            messages.error(request, 'Store name cannot be empty.')
+            return _render()
+
+        partner.name = name
+        partner.phone = request.POST.get('phone', '').strip()
+        partner.description = request.POST.get('description', '').strip()
         shop_style = request.POST.get('shop_style', '').strip()
-        theme = request.POST.get('theme', '').strip()
-        if name:
-            partner.name = name
-        if phone:
-            partner.phone = phone
-        if description:
-            partner.description = description
         if shop_style:
             partner.shop_style = shop_style
-        partner.theme = theme if theme else ''
+        partner.theme = request.POST.get('theme', '').strip() or ''
         if 'logo' in request.FILES:
             try:
                 validate_upload(request.FILES['logo'])
                 partner.logo = request.FILES['logo']
             except ValueError as e:
                 messages.error(request, str(e))
-        if request.POST.get('delete_logo'):
+        if request.POST.get('delete_logo') and not request.FILES.get('logo'):
             partner.logo.delete()
             partner.logo = None
         if 'profile_image' in request.FILES:
@@ -2478,7 +2510,7 @@ def dashboard_profile_edit(request):
                 partner.profile_image = request.FILES['profile_image']
             except ValueError as e:
                 messages.error(request, str(e))
-        if request.POST.get('delete_profile_image'):
+        if request.POST.get('delete_profile_image') and not request.FILES.get('profile_image'):
             partner.profile_image.delete()
             partner.profile_image = None
         if 'banner' in request.FILES:
@@ -2487,11 +2519,10 @@ def dashboard_profile_edit(request):
                 partner.banner = request.FILES['banner']
             except ValueError as e:
                 messages.error(request, str(e))
-        if request.POST.get('delete_banner'):
+        if request.POST.get('delete_banner') and not request.FILES.get('banner'):
             partner.banner.delete()
             partner.banner = None
-        custom_url = request.POST.get('custom_redirect_url', '').strip()
-        partner.custom_redirect_url = custom_url if custom_url else ''
+        partner.custom_redirect_url = request.POST.get('custom_redirect_url', '').strip() or ''
         for f in request.FILES.getlist('new_banners'):
             if f:
                 try:
@@ -2502,13 +2533,10 @@ def dashboard_profile_edit(request):
         for bid in request.POST.getlist('delete_extra_banner'):
             PartnerBanner.objects.filter(id=bid, partner=partner).delete()
         partner.save()
-        return redirect('dashboard')
-    extra_banners = partner.extra_banners.all()
-    return render(request, 'store/dashboard_profile_edit.html', {
-        'partner': partner,
-        'extra_banners': extra_banners,
-        'THEME_CHOICES': THEME_CHOICES,
-    })
+        messages.success(request, 'Your store was updated successfully.')
+        return redirect('dashboard_store_edit')
+
+    return _render()
 
 
 @login_required
@@ -2561,8 +2589,7 @@ def add_review(request, product_id):
 
 @login_required
 def dashboard_addresses(request):
-    addresses = request.user.addresses.all()
-    return render(request, 'store/dashboard_addresses.html', {'addresses': addresses})
+    return redirect('account_addresses')
 
 
 @login_required
@@ -2576,6 +2603,7 @@ def dashboard_address_add(request):
         district = request.POST.get('district', '').strip()
         division = request.POST.get('division', '').strip()
         zip_code = request.POST.get('zip_code', '').strip()
+        address_type = request.POST.get('address_type', 'home')
         is_default = request.POST.get('is_default') == 'on'
 
         if is_default:
@@ -2591,10 +2619,14 @@ def dashboard_address_add(request):
             district=district,
             division=division,
             zip_code=zip_code,
+            address_type=address_type if address_type in ('home', 'office', 'other') else 'home',
             is_default=is_default,
         )
+        if hasattr(request.user, 'profile'):
+            from .models import AccountActivityLog
+            AccountActivityLog.objects.create(user=request.user, action='address_added', ip=request.META.get('REMOTE_ADDR', ''), user_agent=request.META.get('HTTP_USER_AGENT', '')[:380])
         messages.success(request, 'Address added successfully.')
-        return redirect('dashboard_addresses')
+        return redirect('account_addresses')
     return render(request, 'store/dashboard_address_form.html', {'address': None})
 
 
@@ -2610,32 +2642,46 @@ def dashboard_address_edit(request, pk):
         address.district = request.POST.get('district', '').strip()
         address.division = request.POST.get('division', '').strip()
         address.zip_code = request.POST.get('zip_code', '').strip()
+        address.address_type = request.POST.get('address_type', 'home')
+        if address.address_type not in ('home', 'office', 'other'):
+            address.address_type = 'home'
         is_default = request.POST.get('is_default') == 'on'
         if is_default:
             request.user.addresses.exclude(pk=address.pk).update(is_default=False)
         address.is_default = is_default
         address.save()
+        if hasattr(request.user, 'profile'):
+            from .models import AccountActivityLog
+            AccountActivityLog.objects.create(user=request.user, action='address_updated', ip=request.META.get('REMOTE_ADDR', ''), user_agent=request.META.get('HTTP_USER_AGENT', '')[:380])
         messages.success(request, 'Address updated successfully.')
-        return redirect('dashboard_addresses')
+        return redirect('account_addresses')
     return render(request, 'store/dashboard_address_form.html', {'address': address})
 
 
 @login_required
+@require_POST
 def dashboard_address_delete(request, pk):
     address = get_object_or_404(Address, pk=pk, user=request.user)
     address.delete()
+    if hasattr(request.user, 'profile'):
+        from .models import AccountActivityLog
+        AccountActivityLog.objects.create(user=request.user, action='address_deleted', ip=request.META.get('REMOTE_ADDR', ''), user_agent=request.META.get('HTTP_USER_AGENT', '')[:380])
     messages.success(request, 'Address deleted.')
-    return redirect('dashboard_addresses')
+    return redirect('account_addresses')
 
 
 @login_required
+@require_POST
 def dashboard_address_set_default(request, pk):
     address = get_object_or_404(Address, pk=pk, user=request.user)
     request.user.addresses.update(is_default=False)
     address.is_default = True
     address.save(update_fields=['is_default'])
+    if hasattr(request.user, 'profile'):
+        from .models import AccountActivityLog
+        AccountActivityLog.objects.create(user=request.user, action='default_address_changed', ip=request.META.get('REMOTE_ADDR', ''), user_agent=request.META.get('HTTP_USER_AGENT', '')[:380])
     messages.success(request, f'"{address}" is now your default address.')
-    return redirect('dashboard_addresses')
+    return redirect('account_addresses')
 
 
 @login_required

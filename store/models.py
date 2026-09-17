@@ -45,6 +45,8 @@ class Address(models.Model):
     district = models.CharField(max_length=200, blank=True)
     division = models.CharField(max_length=200, blank=True)
     zip_code = models.CharField(max_length=20, blank=True)
+    ADDRESS_TYPE_CHOICES = [('home', 'Home'), ('office', 'Office'), ('other', 'Other')]
+    address_type = models.CharField(max_length=20, choices=ADDRESS_TYPE_CHOICES, blank=True, default='home', help_text='Label for the address (Home / Office / Other). Existing field, stored value never rewritten.')
     is_default = models.BooleanField(default=False, help_text='Use this address by default at checkout')
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
@@ -2375,3 +2377,145 @@ class BrandLogo(models.Model):
 
     def __str__(self):
         return self.name
+
+
+# ════════════════════════════════════════════
+# Account Center (User Profile & Account)
+# ════════════════════════════════════════════
+
+class UserProfile(models.Model):
+    """Per-user profile for the account center. Created lazily for every user."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    avatar = models.ImageField(upload_to='user_avatars/', blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True)
+    email_verified = models.BooleanField(default=False)
+    phone_verified = models.BooleanField(default=False)
+    bio = models.TextField(blank=True)
+    GENDER_CHOICES = [('', 'Not specified'), ('male', 'Male'), ('female', 'Female'), ('other', 'Other')]
+    gender = models.CharField(max_length=20, choices=GENDER_CHOICES, blank=True, default='')
+    date_of_birth = models.DateField(blank=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'User Profile'
+        verbose_name_plural = 'User Profiles'
+
+    def __str__(self):
+        return f'Profile of {self.user.username}'
+
+    def completion_percentage(self):
+        score = 0
+        checks = []
+        u = self.user
+        if (u.first_name or u.last_name):
+            score += 20
+        if u.email:
+            score += 25 if self.email_verified else 15
+        if self.phone and self.phone_verified:
+            score += 25
+        elif self.phone:
+            score += 15
+        if self.avatar:
+            score += 10
+        if u.addresses.filter(is_default=True).exists() or u.addresses.exists():
+            score += 20
+        return min(score, 100)
+
+
+class OneTimeCode(models.Model):
+    """Server-side hashed one-time code for email/phone verification."""
+    PURPOSE_CHOICES = [
+        ('email_verify', 'Email Verification'),
+        ('phone_verify', 'Phone Verification'),
+        ('email_change', 'Email Change'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='otp_codes')
+    purpose = models.CharField(max_length=30, choices=PURPOSE_CHOICES)
+    code_hash = models.CharField(max_length=200)
+    attempts = models.PositiveIntegerField(default=0)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+    new_email = models.EmailField(blank=True, help_text='For email change: the address the code was sent to')
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'One Time Code'
+        verbose_name_plural = 'One Time Codes'
+        ordering = ['-created']
+
+
+class UserNotificationPreference(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='notification_preferences')
+    order_updates = models.BooleanField(default=True, verbose_name='Order updates')
+    review_replies = models.BooleanField(default=True, verbose_name='Review / Q&A replies')
+    promotions = models.BooleanField(default=False, verbose_name='Promotions & offers')
+    security_alerts = models.BooleanField(default=True, verbose_name='Security alerts')
+
+    class Meta:
+        verbose_name = 'Notification Preference'
+        verbose_name_plural = 'Notification Preferences'
+
+    def __str__(self):
+        return f'Notification prefs of {self.user.username}'
+
+
+class AccountActivityLog(models.Model):
+    ACTIONS = [
+        ('login', 'Login'),
+        ('login_2fa', 'Login (two-factor)'),
+        ('logout', 'Logout'),
+        ('password_change', 'Password changed'),
+        ('2fa_enabled', 'Two-factor enabled'),
+        ('2fa_disabled', 'Two-factor disabled'),
+        ('email_verified', 'Email verified'),
+        ('phone_verified', 'Phone verified'),
+        ('email_changed', 'Email changed'),
+        ('profile_updated', 'Profile updated'),
+        ('avatar_updated', 'Avatar updated'),
+        ('address_added', 'Address added'),
+        ('address_updated', 'Address updated'),
+        ('address_deleted', 'Address deleted'),
+        ('default_address_changed', 'Default address changed'),
+        ('sessions_revoked', 'Other sessions logged out'),
+        ('preferences_updated', 'Notification preferences updated'),
+        ('account_deactivated', 'Account deactivated'),
+        ('security_failed', 'Security check failed'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='activity_logs')
+    action = models.CharField(max_length=40, choices=ACTIONS)
+    detail = models.CharField(max_length=300, blank=True)
+    ip = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.CharField(max_length=400, blank=True)
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'Account Activity Log'
+        verbose_name_plural = 'Account Activity Logs'
+        ordering = ['-created']
+
+
+class TwoFactorBackup(models.Model):
+    """TOTP two-factor secret for a user. One per user."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='two_factor')
+    secret = models.CharField(max_length=64)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Two Factor Backup'
+        verbose_name_plural = 'Two Factor Backups'
+
+    def __str__(self):
+        return f'2FA for {self.user.username}'
+
+
+class TwoFactorRecoveryCode(models.Model):
+    """Single-use recovery codes, stored hashed."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recovery_codes')
+    code_hash = models.CharField(max_length=200)
+    used = models.BooleanField(default=False)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Recovery Code'
+        verbose_name_plural = 'Recovery Codes'

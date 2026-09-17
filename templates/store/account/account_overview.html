@@ -1,0 +1,71 @@
+{% extends 'store/account/account_center_base.html' %}
+{% block account_tab_content %}
+<div class="ud-card">
+  <h1 class="ud-page-title">Account Overview</h1>
+  <p class="ud-page-sub">Welcome back, {{ request.user.first_name|default:request.user.username }}.</p>
+
+  <div class="ud-completion">
+    <div class="ud-completion-head">
+      <span>Profile completion</span><strong>{{ completion }}%</strong>
+    </div>
+    <div class="ud-completion-bar"><span style="width:{{ completion }}%"></span></div>
+  </div>
+
+  <div class="ud-stat-grid">
+    <div class="ud-stat">
+      <span class="ud-stat-num">{{ orders_count }}</span>
+      <span class="ud-stat-label">Orders</span>
+      <a href="{% url 'account_orders' %}" class="ud-stat-link">View</a>
+    </div>
+    <div class="ud-stat">
+      <span class="ud-stat-num">{{ address_count }}</span>
+      <span class="ud-stat-label">Saved addresses</span>
+      <a href="{% url 'account_addresses' %}" class="ud-stat-link">View</a>
+    </div>
+    <div class="ud-stat">
+      <span class="ud-stat-num">{{ wishlist_count }}</span>
+      <span class="ud-stat-label">Wishlist items</span>
+      <a href="{% url 'account_wishlist' %}" class="ud-stat-link">View</a>
+    </div>
+    <div class="ud-stat">
+      <span class="ud-stat-num">৳{{ total_order_value|floatformat:0 }}</span>
+      <span class="ud-stat-label">Total order value</span>
+      <a href="{% url 'account_orders' %}" class="ud-stat-link">View</a>
+    </div>
+  </div>
+
+  {% if wallet %}
+  <div class="ud-card ud-nested">
+    <h2>Wallet</h2>
+    <p>Available balance <strong>৳{{ wallet.available_balance|floatformat:0 }}</strong></p>
+    <a href="{% url 'account_wallet' %}" class="ud-btn ud-btn-primary">Open wallet</a>
+  </div>
+  {% else %}
+  <div class="ud-card ud-nested ud-muted">
+    <h2>Wallet</h2>
+    <p>No seller wallet attached to this account.</p>
+    {% if not partner %}<a href="{% url 'dashboard_become_seller' %}" class="ud-btn ud-btn-outline">Become a seller</a>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if unread_notifications %}
+  <div class="ud-card ud-nested">
+    <h2>Notifications</h2>
+    <p>{{ unread_notifications }} unread notification{{ unread_notifications|pluralize }}.</p>
+    <a href="{% url 'dashboard_notifications' %}" class="ud-btn ud-btn-outline">Open notifications</a>
+  </div>
+  {% endif %}
+
+  {% if recent_logs %}
+  <div class="ud-card ud-nested">
+    <h2>Recent activity</h2>
+    <ul class="ud-log-list">
+      {% for log in recent_logs %}
+      <li><strong>{{ log.get_action_display }}</strong> <span class="ud-mut">· {{ log.created }}</span></li>
+      {% endfor %}
+    </ul>
+    <a href="{% url 'account_security' %}" class="ud-btn ud-btn-outline">View security &amp; activity</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

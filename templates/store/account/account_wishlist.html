@@ -1,0 +1,34 @@
+{% extends 'store/account/account_center_base.html' %}
+{% block account_tab_content %}
+<div class="ud-card">
+  <h1 class="ud-page-title">My Wishlist</h1>
+  <p class="ud-page-sub">Products you've saved for later.</p>
+
+  {% if items %}
+  <div class="ud-wishlist-grid">
+    {% for item in items %}
+    <div class="ud-wish-item">
+      {% if item.product.image %}
+      <a href="{% url 'product_detail' item.product.slug %}">
+        <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}" loading="lazy">
+      </a>
+      {% endif %}
+      <div>
+        <a class="ud-wish-name" href="{% url 'product_detail' item.product.slug %}">{{ item.product.name }}</a>
+        <p class="ud-amount">৳{{ item.product.price|floatformat:2 }}</p>
+        <div class="ud-inline-form ud-gap">
+          <a class="ud-btn ud-btn-primary ud-btn-sm" href="{% url 'product_detail' item.product.slug %}">View</a>
+          <a class="ud-btn ud-btn-text ud-danger" href="{% url 'wishlist_remove' item.pk %}">Remove</a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="ud-empty">
+    <p>Your wishlist is empty.</p>
+    <a class="ud-btn ud-btn-primary" href="{% url 'shop_grid' %}">Browse products</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
